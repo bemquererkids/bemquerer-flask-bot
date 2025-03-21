@@ -1,3 +1,3 @@
-# Bem-Querer Bot com CSV
+# Bem-Querer Bot com IA e CSV
 
-Bot Flask que salva leads localmente em CSV.
+Bot Flask integrado ao OpenAI, salvando leads em CSV.
