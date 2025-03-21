@@ -33,7 +33,7 @@ Informações importantes da clínica:
 Pergunta: {pergunta}
 """
     resposta = openai.ChatCompletion.create(
-        model="gpt-4",
+        model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "Você é uma secretária virtual da Clínica Bem-Querer Odontologia."},
             {"role": "user", "content": prompt}
