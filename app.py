@@ -5,8 +5,12 @@ import csv
 import openai
 import time
 import random
+import sys
 
 app = Flask(__name__)
+
+# Forçando flush imediato
+sys.stdout.flush()
 
 # Lendo contexto fixo da clínica
 with open('contexto.txt', 'r') as file:
@@ -40,11 +44,13 @@ def index():
     numero = request.form.get('From')
     mensagem = request.form.get('Body').strip()
 
-    print(f"📥 Mensagem recebida de {numero}: {mensagem}")  # LOG
+    print(f"📥 Mensagem recebida de {numero}: {mensagem}")
+    sys.stdout.flush()
 
     resposta_ia = gerar_resposta_ia(mensagem)
 
-    print(f"🤖 Resposta gerada: {resposta_ia}")  # LOG
+    print(f"🤖 Resposta gerada: {resposta_ia}")
+    sys.stdout.flush()
     
     salvar_csv(numero, mensagem, resposta_ia)
 
@@ -54,12 +60,13 @@ def index():
     resp = MessagingResponse()
     resp.message(resposta_ia)
 
-    print(f"✅ Resposta enviada para {numero}")  # LOG
+    print(f"✅ Resposta enviada para {numero}")
+    sys.stdout.flush()
 
     response = Response(str(resp), mimetype='application/xml')
     response.headers["Access-Control-Allow-Origin"] = "*"
     return response, 200
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # Porta padrão Render
-    app.run(host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=True)
