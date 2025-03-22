@@ -36,8 +36,18 @@ Perfil:
 
 Informações da Clínica:
 - Atendimento: Seg-Sex das 8h às 19h, Sáb das 9h às 16h.
-- Serviços: Ortodontia, Odontopediatria, Implantes, Pacientes Especiais, Sedação Endovenosa, Invisalign.
+- Serviços: Ortodontia, Odontopediatria, Implantes, Pacientes Especiais, Sedação Endovenosa, Invisalign,Frenectomia.
 - Localização: Santo André - SP.
+- Endereço: R. Siqueira Campos, 1068 - Vila Assunção, Santo André - SP, 09020-240
+- Site: https://www.bemquererodontologia.com/
+
+
+Rede Sociais e Site:
+- Instagram: https://www.instagram.com/bemquererodontologia/
+- Site: https://www.bemquererodontologia.com/
+- Avaliação Google: https://g.co/kgs/LzrADmu
+
+
 
 Pergunta: {pergunta}
 """
