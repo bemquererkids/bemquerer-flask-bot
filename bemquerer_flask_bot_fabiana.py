@@ -40,7 +40,11 @@ def index():
     numero = request.form.get('From')
     mensagem = request.form.get('Body').strip()
 
+    print(f"📥 Mensagem recebida de {numero}: {mensagem}")  # LOG
+
     resposta_ia = gerar_resposta_ia(mensagem)
+
+    print(f"🤖 Resposta gerada: {resposta_ia}")  # LOG
     
     salvar_csv(numero, mensagem, resposta_ia)
 
@@ -49,6 +53,8 @@ def index():
 
     resp = MessagingResponse()
     resp.message(resposta_ia)
+
+    print(f"✅ Resposta enviada para {numero}")  # LOG
 
     response = Response(str(resp), mimetype='application/xml')
     response.headers["Access-Control-Allow-Origin"] = "*"
