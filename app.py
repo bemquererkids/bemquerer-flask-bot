@@ -1,16 +1,14 @@
+
 from flask import Flask, request, Response
 from twilio.twiml.messaging_response import MessagingResponse
 import os
 import csv
 import openai
+import pandas as pd
 import time
 import random
-import sys
 
 app = Flask(__name__)
-
-# Forçando flush imediato
-sys.stdout.flush()
 
 # Lendo contexto fixo da clínica
 with open('contexto.txt', 'r') as file:
@@ -21,6 +19,9 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 csv_filename = "leads.csv"
 
+# Carregando FAQ
+faq_df = pd.read_csv("faq.csv")
+
 def salvar_csv(numero, mensagem, resposta):
     file_exists = os.path.isfile(csv_filename)
     with open(csv_filename, mode='a', newline='') as file:
@@ -28,6 +29,12 @@ def salvar_csv(numero, mensagem, resposta):
         if not file_exists:
             writer.writerow(['Numero', 'Mensagem Recebida', 'Resposta Enviada'])
         writer.writerow([numero, mensagem, resposta])
+
+def verificar_faq(mensagem):
+    for index, row in faq_df.iterrows():
+        if row['Pergunta'].lower() in mensagem.lower():
+            return row['Resposta']
+    return None
 
 def gerar_resposta_ia(pergunta):
     resposta = openai.ChatCompletion.create(
@@ -45,23 +52,28 @@ def index():
     mensagem = request.form.get('Body').strip()
 
     print(f"📥 Mensagem recebida de {numero}: {mensagem}")
-    sys.stdout.flush()
 
-    resposta_ia = gerar_resposta_ia(mensagem)
-
-    print(f"🤖 Resposta gerada: {resposta_ia}")
-    sys.stdout.flush()
+    # Primeiro verifica no FAQ
+    resposta_faq = verificar_faq(mensagem)
     
-    salvar_csv(numero, mensagem, resposta_ia)
+    if resposta_faq:
+        resposta = resposta_faq
+        print("✅ Resposta enviada pelo FAQ")
+    else:
+        # Senão, chama OpenAI
+        resposta = gerar_resposta_ia(mensagem)
+        print("🤖 Resposta gerada pela OpenAI")
+    
+    salvar_csv(numero, mensagem, resposta)
 
+    # Delay humanizado
     delay = random.randint(2, 4)
     time.sleep(delay)
 
     resp = MessagingResponse()
-    resp.message(resposta_ia)
+    resp.message(resposta)
 
     print(f"✅ Resposta enviada para {numero}")
-    sys.stdout.flush()
 
     response = Response(str(resp), mimetype='application/xml')
     response.headers["Access-Control-Allow-Origin"] = "*"
