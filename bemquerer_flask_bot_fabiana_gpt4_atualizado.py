@@ -8,6 +8,12 @@ import random
 
 app = Flask(__name__)
 
+# Lendo o contexto fixo do arquivo
+with open('contexto.txt', 'r') as file:
+    contexto_clinica = file.read()
+
+
+
 # Configuração OpenAI usando variável de ambiente
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -53,9 +59,9 @@ Pergunta: {pergunta}
 """
     resposta = openai.ChatCompletion.create(
         model="gpt-4-turbo",
-        messages=[
-            {"role": "system", "content": "Você é Fabiana, secretária virtual simpática e especialista da Clínica Bem-Querer Odontologia."},
-            {"role": "user", "content": prompt}
+ 	messages=[
+            {"role": "system", "content": contexto_clinica},
+            {"role": "user", "content": pergunta}
         ]
     )
     return resposta["choices"][0]["message"]["content"].strip()
