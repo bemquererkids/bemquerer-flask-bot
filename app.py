@@ -22,6 +22,7 @@ csv_filename = "leads.csv"
 # Carregando FAQ
 faq_df = pd.read_csv("faq.csv")
 
+# Função para salvar os leads recebidos
 def salvar_csv(numero, mensagem, resposta):
     file_exists = os.path.isfile(csv_filename)
     with open(csv_filename, mode='a', newline='') as file:
@@ -30,7 +31,7 @@ def salvar_csv(numero, mensagem, resposta):
             writer.writerow(['Numero', 'Mensagem Recebida', 'Resposta Enviada'])
         writer.writerow([numero, mensagem, resposta])
 
-# NOVA FUNÇÃO COM DIFLIB
+# Verificar pergunta no FAQ com margem de flexibilidade (difflib)
 def verificar_faq(mensagem):
     mensagem = mensagem.lower().strip()
     melhor_similaridade = 0
@@ -46,6 +47,7 @@ def verificar_faq(mensagem):
     
     return resposta_encontrada
 
+# Função para gerar resposta via OpenAI (ChatGPT)
 def gerar_resposta_ia(pergunta):
     resposta = openai.ChatCompletion.create(
         model="gpt-4-turbo",
@@ -56,6 +58,7 @@ def gerar_resposta_ia(pergunta):
     )
     return resposta["choices"][0]["message"]["content"].strip()
 
+# Rota principal para receber e responder mensagens do Twilio WhatsApp
 @app.route("/", methods=['POST'])
 def index():
     numero = request.form.get('From')
@@ -63,23 +66,24 @@ def index():
 
     print(f"📥 Mensagem recebida de {numero}: {mensagem}")
 
-    # Primeiro verifica no FAQ
+    # Verificar primeiro no FAQ
     resposta_faq = verificar_faq(mensagem)
     
     if resposta_faq:
         resposta = resposta_faq
         print("✅ Resposta enviada pelo FAQ (Similaridade Alta)")
     else:
-        # Senão, chama OpenAI
+        # Caso não encontre, gerar via OpenAI
         resposta = gerar_resposta_ia(mensagem)
         print("🤖 Resposta gerada pela OpenAI")
     
     salvar_csv(numero, mensagem, resposta)
 
-    # Delay humanizado
+    # Delay humanizado para parecer natural
     delay = random.randint(2, 4)
     time.sleep(delay)
 
+    # Envia a resposta via Twilio
     resp = MessagingResponse()
     resp.message(resposta)
 
@@ -90,5 +94,5 @@ def index():
     return response, 200
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 10000))  # Porta padrão Render
     app.run(host="0.0.0.0", port=port, debug=True)
