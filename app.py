@@ -1,4 +1,3 @@
-
 from flask import Flask, request, Response
 from twilio.twiml.messaging_response import MessagingResponse
 import os
@@ -7,6 +6,7 @@ import openai
 import pandas as pd
 import time
 import random
+import difflib
 
 app = Flask(__name__)
 
@@ -30,11 +30,21 @@ def salvar_csv(numero, mensagem, resposta):
             writer.writerow(['Numero', 'Mensagem Recebida', 'Resposta Enviada'])
         writer.writerow([numero, mensagem, resposta])
 
+# NOVA FUNÇÃO COM DIFLIB
 def verificar_faq(mensagem):
+    mensagem = mensagem.lower().strip()
+    melhor_similaridade = 0
+    resposta_encontrada = None
+    
     for index, row in faq_df.iterrows():
-        if row['Pergunta'].lower() in mensagem.lower():
-            return row['Resposta']
-    return None
+        pergunta_faq = row['Pergunta'].lower().strip()
+        similaridade = difflib.SequenceMatcher(None, pergunta_faq, mensagem).ratio()
+        
+        if similaridade > 0.6 and similaridade > melhor_similaridade:
+            melhor_similaridade = similaridade
+            resposta_encontrada = row['Resposta']
+    
+    return resposta_encontrada
 
 def gerar_resposta_ia(pergunta):
     resposta = openai.ChatCompletion.create(
@@ -58,7 +68,7 @@ def index():
     
     if resposta_faq:
         resposta = resposta_faq
-        print("✅ Resposta enviada pelo FAQ")
+        print("✅ Resposta enviada pelo FAQ (Similaridade Alta)")
     else:
         # Senão, chama OpenAI
         resposta = gerar_resposta_ia(mensagem)
