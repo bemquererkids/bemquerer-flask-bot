@@ -59,6 +59,8 @@ admin.add_view(ModelView(Lead, db.session))
 with app.app_context():
     db.create_all()
     print("✅ Tabelas criadas!")
+    contexto_clinica = carregar_contexto()
+    faq_list = carregar_faq()
 
 # OpenAI Config
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
