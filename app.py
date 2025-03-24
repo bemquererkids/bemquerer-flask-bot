@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
 import os
+import pandas as pd
 import time
 import random
 import difflib
@@ -11,7 +12,7 @@ from openai import OpenAI
 
 app = Flask(__name__)
 
-# Configuração PostgreSQL
+# Configurações Flask e PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'supersecretkey'
@@ -55,17 +56,10 @@ admin.add_view(ModelView(FAQ, db.session))
 admin.add_view(ModelView(Context, db.session))
 admin.add_view(ModelView(Lead, db.session))
 
-# Criando Tabelas
-with app.app_context():
-    db.create_all()
-    print("✅ Tabelas criadas!")
-    contexto_clinica = carregar_contexto()
-    faq_list = carregar_faq()
-
 # OpenAI Config
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Carregar FAQ e contexto
+# Funções auxiliares
 def carregar_contexto():
     contexto = Context.query.first()
     return contexto.content if contexto else ""
@@ -73,9 +67,6 @@ def carregar_contexto():
 def carregar_faq():
     faqs = FAQ.query.all()
     return [{'Pergunta': f.question, 'Resposta': f.answer} for f in faqs]
-
-contexto_clinica = carregar_contexto()
-faq_list = carregar_faq()
 
 def salvar_lead(numero, mensagem, resposta):
     lead = Lead(
@@ -87,7 +78,7 @@ def salvar_lead(numero, mensagem, resposta):
     )
     db.session.add(lead)
     db.session.commit()
-    print(f"💾 Lead salvo: {numero}, {mensagem}")
+    print(f"💾 Lead salvo no banco: {numero}, {mensagem}")
 
 def verificar_faq(mensagem):
     mensagem = mensagem.lower().strip()
@@ -113,6 +104,14 @@ def gerar_resposta_ia(pergunta):
     )
     return resposta.choices[0].message.content.strip()
 
+# Inicializar banco e carregar dados
+with app.app_context():
+    db.create_all()
+    print("✅ Tabelas criadas!")
+    contexto_clinica = carregar_contexto()
+    faq_list = carregar_faq()
+
+# Webhook principal
 @app.route("/", methods=['POST'])
 def index():
     numero = request.form.get('From')
@@ -124,7 +123,7 @@ def index():
 
     if resposta_faq:
         resposta = resposta_faq
-        print("✅ Resposta do FAQ enviada")
+        print("✅ Resposta enviada pelo FAQ (Alta similaridade)")
     else:
         resposta = gerar_resposta_ia(mensagem)
         print("🤖 Resposta gerada pela OpenAI")
