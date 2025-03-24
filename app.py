@@ -50,13 +50,13 @@ class Lead(db.Model):
 
 # Flask-Admin
 admin = Admin(app, name='Bem-Querer Admin', template_mode='bootstrap3')
-admin.add_view(ModelView(Clinic, db.session))
+admin.add_view(ModelView(Clinica, db.session))
 admin.add_view(ModelView(FAQ, db.session))
 admin.add_view(ModelView(Context, db.session))
 admin.add_view(ModelView(Lead, db.session))
 
-@app.before_first_request
-def create_tables():
+# Criando Tabelas
+with app.app_context():
     db.create_all()
     print("✅ Tabelas criadas!")
 
