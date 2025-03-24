@@ -1,4 +1,9 @@
 Flask
-twilio
-openai==0.28
+Flask-SQLAlchemy
+psycopg2-binary
+Flask-Admin
+openai>=1.12.0
 pandas
+python-dotenv
+twilio
+
