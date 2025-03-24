@@ -1,3 +1,4 @@
+from flask_migrate import Migrate
 from flask import Flask, request, Response
 from twilio.twiml.messaging_response import MessagingResponse
 from flask_sqlalchemy import SQLAlchemy
@@ -17,6 +18,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'supersecretkey'
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db) 
 
 # Modelos
 class Clinic(db.Model):
