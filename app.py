@@ -4,7 +4,6 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
 import os
-import pandas as pd
 import time
 import random
 import difflib
@@ -84,5 +83,83 @@ def salvar_lead(numero, mensagem, resposta):
         clinic_id=1,
         name="",
         phone=numero,
+        email=None,
+        birth_date=None,
+        special_needs=False,
+        syndrome=None,
+        sedation=False,
+        allergies=None,
+        medications=None,
+        notes=None,
         message=mensagem,
-        response
+        response=resposta
+    )
+    db.session.add(lead)
+    db.session.commit()
+    print(f"💾 Lead salvo no banco: {numero}, {mensagem}")
+
+def verificar_faq(mensagem):
+    mensagem = mensagem.lower().strip()
+    melhor_similaridade = 0
+    resposta_encontrada = None
+
+    for row in faq_list:
+        pergunta_faq = row['Pergunta'].lower().strip()
+        similaridade = difflib.SequenceMatcher(None, pergunta_faq, mensagem).ratio()
+        if similaridade > 0.6 and similaridade > melhor_similaridade:
+            melhor_similaridade = similaridade
+            resposta_encontrada = row['Resposta']
+
+    return resposta_encontrada
+
+def gerar_resposta_ia(pergunta):
+    resposta = client.chat.completions.create(
+        model="gpt-4-turbo",
+        messages=[
+            {"role": "system", "content": contexto_clinica},
+            {"role": "user", "content": pergunta}
+        ]
+    )
+    return resposta.choices[0].message.content.strip()
+
+@app.route("/", methods=['POST'])
+def index():
+    numero = request.form.get('From')
+    mensagem = request.form.get('Body').strip()
+
+    print(f"📥 Mensagem recebida de {numero}: {mensagem}")
+
+    resposta_faq = verificar_faq(mensagem)
+
+    if resposta_faq:
+        resposta = resposta_faq
+        print("✅ Resposta enviada pelo FAQ (Alta similaridade)")
+    else:
+        resposta = gerar_resposta_ia(mensagem)
+        print("🤖 Resposta gerada pela OpenAI")
+
+    salvar_lead(numero, mensagem, resposta)
+
+    delay = random.randint(2, 4)
+    time.sleep(delay)
+
+    resp = MessagingResponse()
+    resp.message(resposta)
+
+    print(f"✅ Resposta enviada para {numero}")
+
+    response = Response(str(resp), mimetype='application/xml')
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response, 200
+
+if __name__ == "__main__":
+    # Criação das tabelas e carregamento do contexto/FAQ
+    with app.app_context():
+        db.create_all()
+        print("✅ Tabelas criadas ou atualizadas!")
+        contexto_clinica = carregar_contexto()
+        faq_list = carregar_faq()
+        print("🚀 Contexto e FAQ carregados!")
+
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=True)
