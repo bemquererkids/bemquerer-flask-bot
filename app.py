@@ -45,9 +45,12 @@ class Lead(db.Model):
     clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'))
     name = db.Column(db.String(100))
     phone = db.Column(db.String(50))
-    message = db.Column(db.Text)
-    response = db.Column(db.Text)
+    email = db.Column(db.String(100), nullable=True)
+    birth_date = db.Column(db.Date, nullable=True)
+    special_needs = db.Column(db.Boolean, default=False)
+    notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    last_contact = db.Column(db.DateTime, default=db.func.current_timestamp())
 
 # Flask-Admin
 admin = Admin(app, name='Bem-Querer Admin', template_mode='bootstrap3')
