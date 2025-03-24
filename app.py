@@ -1,64 +1,116 @@
 from flask import Flask, request, Response
 from twilio.twiml.messaging_response import MessagingResponse
+from flask_sqlalchemy import SQLAlchemy
+from flask_admin import Admin
+from flask_admin.contrib.sqla import ModelView
 import os
-import csv
-import openai
-import pandas as pd
 import time
 import random
 import difflib
+from openai import OpenAI
 
 app = Flask(__name__)
 
-# Lendo contexto fixo da clínica
-with open('contexto.txt', 'r') as file:
-    contexto_clinica = file.read()
+# Configuração PostgreSQL
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = 'supersecretkey'
 
-# Configuração OpenAI usando variável de ambiente
-openai.api_key = os.getenv("OPENAI_API_KEY")
+db = SQLAlchemy(app)
 
-csv_filename = "leads.csv"
+# Modelos
+class Clinic(db.Model):
+    __tablename__ = 'clinics'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    city = db.Column(db.String(100), nullable=False)
 
-# Carregando FAQ
-faq_df = pd.read_csv("faq.csv")
+class FAQ(db.Model):
+    __tablename__ = 'faq'
+    id = db.Column(db.Integer, primary_key=True)
+    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'))
+    question = db.Column(db.Text, nullable=False)
+    answer = db.Column(db.Text, nullable=False)
 
-# Função para salvar os leads recebidos
-def salvar_csv(numero, mensagem, resposta):
-    file_exists = os.path.isfile(csv_filename)
-    with open(csv_filename, mode='a', newline='') as file:
-        writer = csv.writer(file)
-        if not file_exists:
-            writer.writerow(['Numero', 'Mensagem Recebida', 'Resposta Enviada'])
-        writer.writerow([numero, mensagem, resposta])
+class Context(db.Model):
+    __tablename__ = 'context'
+    id = db.Column(db.Integer, primary_key=True)
+    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'))
+    content = db.Column(db.Text, nullable=False)
 
-# Verificar pergunta no FAQ com margem de flexibilidade (difflib)
+class Lead(db.Model):
+    __tablename__ = 'leads'
+    id = db.Column(db.Integer, primary_key=True)
+    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'))
+    name = db.Column(db.String(100))
+    phone = db.Column(db.String(50))
+    message = db.Column(db.Text)
+    response = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+# Flask-Admin
+admin = Admin(app, name='Bem-Querer Admin', template_mode='bootstrap3')
+admin.add_view(ModelView(Clinic, db.session))
+admin.add_view(ModelView(FAQ, db.session))
+admin.add_view(ModelView(Context, db.session))
+admin.add_view(ModelView(Lead, db.session))
+
+@app.before_first_request
+def create_tables():
+    db.create_all()
+    print("✅ Tabelas criadas!")
+
+# OpenAI Config
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Carregar FAQ e contexto
+def carregar_contexto():
+    contexto = Context.query.first()
+    return contexto.content if contexto else ""
+
+def carregar_faq():
+    faqs = FAQ.query.all()
+    return [{'Pergunta': f.question, 'Resposta': f.answer} for f in faqs]
+
+contexto_clinica = carregar_contexto()
+faq_list = carregar_faq()
+
+def salvar_lead(numero, mensagem, resposta):
+    lead = Lead(
+        clinic_id=1,
+        name="",
+        phone=numero,
+        message=mensagem,
+        response=resposta
+    )
+    db.session.add(lead)
+    db.session.commit()
+    print(f"💾 Lead salvo: {numero}, {mensagem}")
+
 def verificar_faq(mensagem):
     mensagem = mensagem.lower().strip()
     melhor_similaridade = 0
     resposta_encontrada = None
-    
-    for index, row in faq_df.iterrows():
+
+    for row in faq_list:
         pergunta_faq = row['Pergunta'].lower().strip()
         similaridade = difflib.SequenceMatcher(None, pergunta_faq, mensagem).ratio()
-        
         if similaridade > 0.6 and similaridade > melhor_similaridade:
             melhor_similaridade = similaridade
             resposta_encontrada = row['Resposta']
-    
+
     return resposta_encontrada
 
-# Função para gerar resposta via OpenAI (ChatGPT)
 def gerar_resposta_ia(pergunta):
-    resposta = openai.ChatCompletion.create(
+    resposta = client.chat.completions.create(
         model="gpt-4-turbo",
         messages=[
             {"role": "system", "content": contexto_clinica},
             {"role": "user", "content": pergunta}
         ]
     )
-    return resposta["choices"][0]["message"]["content"].strip()
+    return resposta.choices[0].message.content.strip()
 
-# Rota principal para receber e responder mensagens do Twilio WhatsApp
 @app.route("/", methods=['POST'])
 def index():
     numero = request.form.get('From')
@@ -66,24 +118,20 @@ def index():
 
     print(f"📥 Mensagem recebida de {numero}: {mensagem}")
 
-    # Verificar primeiro no FAQ
     resposta_faq = verificar_faq(mensagem)
-    
+
     if resposta_faq:
         resposta = resposta_faq
-        print("✅ Resposta enviada pelo FAQ (Similaridade Alta)")
+        print("✅ Resposta do FAQ enviada")
     else:
-        # Caso não encontre, gerar via OpenAI
         resposta = gerar_resposta_ia(mensagem)
         print("🤖 Resposta gerada pela OpenAI")
-    
-    salvar_csv(numero, mensagem, resposta)
 
-    # Delay humanizado para parecer natural
+    salvar_lead(numero, mensagem, resposta)
+
     delay = random.randint(2, 4)
     time.sleep(delay)
 
-    # Envia a resposta via Twilio
     resp = MessagingResponse()
     resp.message(resposta)
 
@@ -94,5 +142,5 @@ def index():
     return response, 200
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # Porta padrão Render
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=True)
