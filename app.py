@@ -63,11 +63,6 @@ admin.add_view(ModelView(FAQ, db.session))
 admin.add_view(ModelView(Context, db.session))
 admin.add_view(ModelView(Lead, db.session))
 
-@app.before_first_request
-def create_tables():
-    db.create_all()
-    print("✅ Tabelas criadas ou atualizadas!")
-
 # OpenAI Config
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -92,8 +87,15 @@ def salvar_lead(numero, mensagem, resposta):
     db.session.commit()
     print(f"💾 Lead salvo no banco: {numero}, {mensagem}")
 
-contexto_clinica = carregar_contexto()
-faq_list = carregar_faq()
+contexto_clinica = ""
+faq_list = []
+
+@app.before_first_request
+def initialize():
+    global contexto_clinica, faq_list
+    contexto_clinica = carregar_contexto()
+    faq_list = carregar_faq()
+    print("🚀 Contexto e FAQ carregados!")
 
 def verificar_faq(mensagem):
     mensagem = mensagem.lower().strip()
@@ -150,5 +152,10 @@ def index():
     return response, 200
 
 if __name__ == "__main__":
+    # Criação das tabelas ANTES de rodar o app
+    with app.app_context():
+        db.create_all()
+        print("✅ Tabelas criadas ou atualizadas!")
+
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=True)
