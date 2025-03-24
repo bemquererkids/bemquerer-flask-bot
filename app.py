@@ -12,7 +12,7 @@ from openai import OpenAI
 
 app = Flask(__name__)
 
-# Configurações Flask e PostgreSQL
+# Configuração Flask e PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'supersecretkey'
@@ -48,6 +48,10 @@ class Lead(db.Model):
     email = db.Column(db.String(100), nullable=True)
     birth_date = db.Column(db.Date, nullable=True)
     special_needs = db.Column(db.Boolean, default=False)
+    syndrome = db.Column(db.String(100), nullable=True)  # Novo campo
+    sedation = db.Column(db.Boolean, default=False)  # Novo campo
+    allergies = db.Column(db.Text, nullable=True)  # Novo campo
+    medications = db.Column(db.Text, nullable=True)  # Novo campo
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     last_contact = db.Column(db.DateTime, default=db.func.current_timestamp())
@@ -58,6 +62,11 @@ admin.add_view(ModelView(Clinic, db.session))
 admin.add_view(ModelView(FAQ, db.session))
 admin.add_view(ModelView(Context, db.session))
 admin.add_view(ModelView(Lead, db.session))
+
+@app.before_first_request
+def create_tables():
+    db.create_all()
+    print("✅ Tabelas criadas ou atualizadas!")
 
 # OpenAI Config
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -83,6 +92,9 @@ def salvar_lead(numero, mensagem, resposta):
     db.session.commit()
     print(f"💾 Lead salvo no banco: {numero}, {mensagem}")
 
+contexto_clinica = carregar_contexto()
+faq_list = carregar_faq()
+
 def verificar_faq(mensagem):
     mensagem = mensagem.lower().strip()
     melhor_similaridade = 0
@@ -107,14 +119,6 @@ def gerar_resposta_ia(pergunta):
     )
     return resposta.choices[0].message.content.strip()
 
-# Inicializar banco e carregar dados
-with app.app_context():
-    db.create_all()
-    print("✅ Tabelas criadas!")
-    contexto_clinica = carregar_contexto()
-    faq_list = carregar_faq()
-
-# Webhook principal
 @app.route("/", methods=['POST'])
 def index():
     numero = request.form.get('From')
