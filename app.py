@@ -10,6 +10,10 @@ import random
 import difflib
 from openai import OpenAI
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 app = Flask(__name__)
 
 # Configuração Flask e PostgreSQL
