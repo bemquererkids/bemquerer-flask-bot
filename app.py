@@ -78,7 +78,6 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 contexto_clinica = ""
 faq_list = []
 nome_usuario = {}
-saudacao_usuario = {}
 
 # Funções auxiliares
 def carregar_contexto():
@@ -169,6 +168,9 @@ def gerar_resposta_ia(pergunta, numero):
             nome_usuario[numero] = nome_extraido
             return f"{saudacao}, {nome_extraido}. Em que posso te acolher hoje?"
         return f"{saudacao}! Com quem eu tenho o prazer de falar?"
+
+    if any(p in pergunta.lower() for p in ["quero marcar", "quero agendar", "marcar consulta", "agendar consulta"]):
+        return f"{saudacao}, {nome_usuario[numero]}! O atendimento é para você ou para seu filho(a)? Está com alguma dor ou desconforto no momento?"
 
     resposta = client.chat.completions.create(
         model="gpt-4-turbo",
