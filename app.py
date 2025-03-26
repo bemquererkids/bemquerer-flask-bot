@@ -214,10 +214,6 @@ def gerar_resposta_ia(pergunta, numero):
         return f"{saudacao}! Com quem eu tenho o prazer de falar?"
 
     resposta = responder_com_agente(pergunta)
-
-    if re.search(r"\b(bom dia|boa tarde|boa noite)\b", pergunta.lower()):
-        resposta = re.sub(r"^(bom dia|boa tarde|boa noite)[,!.\"]*", "", resposta, flags=re.IGNORECASE).strip()
-
     return f"{saudacao}, {nome_usuario[numero]}! {resposta.capitalize()}"
 
 @app.route("/", methods=['POST'])
