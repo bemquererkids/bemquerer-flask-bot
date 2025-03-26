@@ -16,6 +16,7 @@ from langchain.agents import initialize_agent, Tool
 from langchain.chat_models import ChatOpenAI
 from langchain.agents.agent_types import AgentType
 from langchain.schema import SystemMessage
+import pytz
 
 load_dotenv()
 
@@ -134,7 +135,7 @@ def verificar_faq(mensagem):
     return resposta_encontrada
 
 def gerar_saudacao():
-    agora = datetime.now().hour
+    agora = datetime.now(pytz.timezone("America/Sao_Paulo")).hour
     if agora < 12:
         return "Bom dia"
     elif 12 <= agora < 18:
@@ -186,8 +187,8 @@ def responder_com_agente(pergunta):
         ),
         Tool(
             name="agendamento",
-            func=lambda _: "Podemos agendar diretamente por aqui! O atendimento é para você ou para seu filho(a)? Está com dor ou algum desconforto agora? Assim consigo verificar o melhor horário com carinho.",
-            description="Ajuda a iniciar o processo de agendamento."
+            func=lambda _: "O atendimento é para você ou para seu filho(a)? Se for para a criança, poderia me informar o nome e a idade? Está com dor ou desconforto no momento? Assim consigo verificar o melhor horário com carinho.",
+            description="Ajuda a iniciar o processo de agendamento com empatia."
         )
     ]
     agente = initialize_agent(
