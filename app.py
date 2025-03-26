@@ -178,7 +178,6 @@ def gerar_resposta_ia(pergunta, numero):
     )
     conteudo = resposta.choices[0].message.content.strip()
 
-    # Corrige caso o usuário tenha digitado uma saudação incorreta para o horário atual
     if re.search(r"\b(bom dia|boa tarde|boa noite)\b", pergunta.lower()):
         conteudo = re.sub(r"^(bom dia|boa tarde|boa noite)[,!.\s]*", "", conteudo, flags=re.IGNORECASE)
 
@@ -212,6 +211,10 @@ def index():
     response = Response(str(resp), mimetype='application/xml')
     response.headers["Access-Control-Allow-Origin"] = "*"
     return response, 200
+
+@app.route("/", methods=['GET'])
+def health_check():
+    return "🚀 API da Secretária Virtual está rodando!", 200
 
 if __name__ == "__main__":
     with app.app_context():
