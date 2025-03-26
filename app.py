@@ -126,16 +126,7 @@ def verificar_faq(mensagem):
             resposta_encontrada = row['Resposta']
     return resposta_encontrada
 
-def detectar_saudacao_usuario(mensagem):
-    if "bom dia" in mensagem.lower():
-        return "Bom dia"
-    if "boa tarde" in mensagem.lower():
-        return "Boa tarde"
-    if "boa noite" in mensagem.lower():
-        return "Boa noite"
-    return None
-
-def gerar_saudacao(numero, mensagem):
+def gerar_saudacao():
     agora = datetime.now().hour
     if agora < 12:
         return "Bom dia"
@@ -165,7 +156,7 @@ def extrair_nome(mensagem):
     return None
 
 def gerar_resposta_ia(pergunta, numero):
-    saudacao = gerar_saudacao(numero, pergunta)
+    saudacao = gerar_saudacao()
     nome_memoria = nome_usuario.get(numero)
     nome_salvo = obter_nome_salvo(numero)
 
