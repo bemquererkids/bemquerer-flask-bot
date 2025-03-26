@@ -82,7 +82,9 @@ nome_usuario = {}
 # Funções auxiliares
 def carregar_contexto():
     contexto = Context.query.first()
-    return contexto.content if contexto else ""
+    if contexto:
+        return f"{contexto.content}\n\nAtenção: Não inicie suas respostas com 'bom dia', 'boa tarde' ou 'boa noite'. A saudação será feita automaticamente com base no horário."
+    return ""
 
 def carregar_faq():
     faqs = FAQ.query.all()
@@ -178,8 +180,7 @@ def gerar_resposta_ia(pergunta, numero):
     )
     conteudo = resposta.choices[0].message.content.strip()
 
-    if re.search(r"\b(bom dia|boa tarde|boa noite)\b", pergunta.lower()):
-        conteudo = re.sub(r"^(bom dia|boa tarde|boa noite)[,!.\s]*", "", conteudo, flags=re.IGNORECASE)
+    conteudo = re.sub(r"^(bom dia|boa tarde|boa noite)[,!\.\s]*", "", conteudo, flags=re.IGNORECASE)
 
     return f"{saudacao}, {nome_usuario[numero]}! {conteudo.strip().capitalize()}"
 
