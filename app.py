@@ -12,6 +12,10 @@ from openai import OpenAI
 from datetime import datetime
 from dotenv import load_dotenv
 import re
+from langchain.agents import initialize_agent, Tool
+from langchain.chat_models import ChatOpenAI
+from langchain.agents.agent_types import AgentType
+from langchain.schema import SystemMessage
 
 load_dotenv()
 
@@ -22,6 +26,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'supersecretkey'
 
+# Banco de Dados
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
@@ -74,6 +79,9 @@ admin.add_view(ModelView(Lead, db.session))
 # OpenAI Config
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# LangChain Config
+llm = ChatOpenAI(temperature=0, model_name="gpt-4")
+
 # Variáveis globais
 contexto_clinica = ""
 faq_list = []
@@ -82,9 +90,7 @@ nome_usuario = {}
 # Funções auxiliares
 def carregar_contexto():
     contexto = Context.query.first()
-    if contexto:
-        return f"{contexto.content}\n\nAtenção: Não inicie suas respostas com 'bom dia', 'boa tarde' ou 'boa noite'. A saudação será feita automaticamente com base no horário."
-    return ""
+    return contexto.content if contexto else ""
 
 def carregar_faq():
     faqs = FAQ.query.all()
@@ -156,6 +162,42 @@ def extrair_nome(mensagem):
             return nome
     return None
 
+def responder_com_agente(pergunta):
+    ferramentas = [
+        Tool(
+            name="Consultar FAQ",
+            func=lambda msg: verificar_faq(msg) or "Desculpe, não encontrei essa informação.",
+            description="Responde dúvidas frequentes da clínica."
+        ),
+        Tool(
+            name="Verificar Horários",
+            func=lambda _: "Atendemos de segunda a sexta das 08h às 19h e aos sábados das 09h às 16h.",
+            description="Retorna os horários e dias de atendimento."
+        ),
+        Tool(
+            name="Consultar Especialidades",
+            func=lambda _: "Drª Vanessa Battistini: Odontopediatria, Pacientes Especiais, Ortodontia dos Maxilares e Invisalign. Drª Fernanda Battistini: Ortodontia. Drº Ewalt Zilse: Prótese, Lentes em Cerâmica, Implantes e Adulto. Drª Jaqueline: Odontopediatria. Drº André Martho: Sedação Endovenosa.",
+            description="Lista especialidades e profissionais da clínica."
+        ),
+        Tool(
+            name="Saiba sobre Sedação",
+            func=lambda _: "Utilizamos sedação endovenosa com supervisão médica para garantir conforto e segurança aos pacientes, especialmente os que possuem necessidades especiais.",
+            description="Explica como funciona a sedação na clínica."
+        ),
+        Tool(
+            name="Agendamento",
+            func=lambda _: "Podemos agendar diretamente por aqui! O atendimento é para você ou para seu filho(a)? Está com dor ou algum desconforto agora? Assim consigo verificar o melhor horário com carinho.",
+            description="Ajuda a iniciar o processo de agendamento."
+        )
+    ]
+    agente = initialize_agent(
+        tools=ferramentas,
+        llm=llm,
+        agent=AgentType.OPENAI_FUNCTIONS,
+        verbose=False
+    )
+    return agente.run(pergunta)
+
 def gerar_resposta_ia(pergunta, numero):
     saudacao = gerar_saudacao()
     nome_memoria = nome_usuario.get(numero)
@@ -171,18 +213,12 @@ def gerar_resposta_ia(pergunta, numero):
             return f"{saudacao}, {nome_extraido}. Em que posso te acolher hoje?"
         return f"{saudacao}! Com quem eu tenho o prazer de falar?"
 
-    resposta = client.chat.completions.create(
-        model="gpt-4-turbo",
-        messages=[
-            {"role": "system", "content": contexto_clinica},
-            {"role": "user", "content": pergunta}
-        ]
-    )
-    conteudo = resposta.choices[0].message.content.strip()
+    resposta = responder_com_agente(pergunta)
 
-    conteudo = re.sub(r"^(bom dia|boa tarde|boa noite)[,!\.\s]*", "", conteudo, flags=re.IGNORECASE)
+    if re.search(r"\b(bom dia|boa tarde|boa noite)\b", pergunta.lower()):
+        resposta = re.sub(r"^(bom dia|boa tarde|boa noite)[,!.\"]*", "", resposta, flags=re.IGNORECASE)
 
-    return f"{saudacao}, {nome_usuario[numero]}! {conteudo.strip().capitalize()}"
+    return f"{saudacao}, {nome_usuario[numero]}! {resposta.strip().capitalize()}"
 
 @app.route("/", methods=['POST'])
 def index():
@@ -197,7 +233,7 @@ def index():
         print("✅ Resposta enviada pelo FAQ (Alta similaridade)")
     else:
         resposta = gerar_resposta_ia(mensagem, numero)
-        print("🤖 Resposta gerada pela OpenAI")
+        print("🤖 Resposta gerada pela IA com LangChain")
 
     salvar_lead(numero, mensagem, resposta)
 
