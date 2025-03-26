@@ -77,8 +77,9 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # Variáveis globais
 contexto_clinica = ""
 faq_list = []
-nome_usuario = {}  # Dict que armazena nome por telefone
+nome_usuario = {}
 
+# Funções auxiliares
 def carregar_contexto():
     contexto = Context.query.first()
     return contexto.content if contexto else ""
@@ -111,14 +112,12 @@ def verificar_faq(mensagem):
     mensagem = mensagem.lower().strip()
     melhor_similaridade = 0
     resposta_encontrada = None
-
     for row in faq_list:
         pergunta_faq = row['Pergunta'].lower().strip()
         similaridade = difflib.SequenceMatcher(None, pergunta_faq, mensagem).ratio()
         if similaridade > 0.6 and similaridade > melhor_similaridade:
             melhor_similaridade = similaridade
             resposta_encontrada = row['Resposta']
-
     return resposta_encontrada
 
 def gerar_saudacao():
@@ -135,7 +134,8 @@ def extrair_nome(mensagem):
         r"meu nome é ([A-Za-zÀ-ÿ']+)",
         r"me chamo ([A-Za-zÀ-ÿ']+)",
         r"sou o ([A-Za-zÀ-ÿ']+)",
-        r"sou a ([A-Za-zÀ-ÿ']+)"
+        r"sou a ([A-Za-zÀ-ÿ']+)",
+        r"com ([A-Za-zÀ-ÿ']+)"
     ]
     for padrao in padroes:
         match = re.search(padrao, mensagem.lower())
@@ -150,7 +150,6 @@ def extrair_nome(mensagem):
 
 def gerar_resposta_ia(pergunta, numero):
     saudacao = gerar_saudacao()
-
     if numero not in nome_usuario:
         nome_usuario[numero] = None
 
@@ -158,7 +157,7 @@ def gerar_resposta_ia(pergunta, numero):
         nome = extrair_nome(pergunta)
         if nome:
             nome_usuario[numero] = nome
-            return f"Perfeito, {nome}. Em que posso te acolher hoje?"
+            return f"{saudacao}, {nome}. Em que posso te acolher hoje?"
         return f"{saudacao}! Com quem eu tenho o prazer de falar?"
 
     resposta = client.chat.completions.create(
