@@ -136,21 +136,13 @@ def detectar_saudacao_usuario(mensagem):
     return None
 
 def gerar_saudacao(numero, mensagem):
-    saudacao_usuario_input = detectar_saudacao_usuario(mensagem)
     agora = datetime.now().hour
-    saudacao_atual = ""
-
     if agora < 12:
-        saudacao_atual = "Bom dia"
+        return "Bom dia"
     elif 12 <= agora < 18:
-        saudacao_atual = "Boa tarde"
+        return "Boa tarde"
     else:
-        saudacao_atual = "Boa noite"
-
-    if saudacao_usuario_input and saudacao_usuario_input != saudacao_atual:
-        return f"{saudacao_atual}! (Vi que você digitou '{saudacao_usuario_input}', mas imagino que seja a correria do dia a dia 😅)"
-
-    return saudacao_atual
+        return "Boa noite"
 
 def extrair_nome(mensagem):
     padroes = [
