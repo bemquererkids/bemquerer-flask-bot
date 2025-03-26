@@ -187,8 +187,8 @@ def responder_com_agente(pergunta):
         ),
         Tool(
             name="agendamento",
-            func=lambda _: "Fico feliz em saber que deseja agendar uma consulta. O atendimento seria para você ou para seu filho(a)? Está com alguma dor ou desconforto no momento? Assim conseguimos acolher com o cuidado que merece.",
-            description="Ajuda a iniciar o processo de agendamento com empatia e compreensão."
+            func=lambda _: "O atendimento é para você ou para seu filho(a)? Se for para a criança, poderia me informar o nome e a idade? Está com dor ou desconforto no momento? Assim consigo verificar o melhor horário com carinho.",
+            description="Ajuda a iniciar o processo de agendamento com empatia."
         )
     ]
     agente = initialize_agent(
@@ -215,7 +215,7 @@ def gerar_resposta_ia(pergunta, numero):
         return f"{saudacao}! Com quem eu tenho o prazer de falar?"
 
     resposta = responder_com_agente(pergunta)
-    return f"{saudacao}, {nome_usuario[numero]}! {resposta.capitalize()}"
+    return f"{saudacao}, {nome_usuario[numero]}! {resposta}"
 
 @app.route("/", methods=['POST'])
 def index():
@@ -249,14 +249,6 @@ def index():
 @app.route("/", methods=['GET'])
 def health_check():
     return "🚀 API da Secretária Virtual está rodando!", 200
-
-@app.route("/reset_memoria", methods=['GET'])
-def reset_memoria():
-    numero = request.args.get("numero")
-    if numero and numero in nome_usuario:
-        del nome_usuario[numero]
-        return f"Memória do número {numero} foi resetada com sucesso!", 200
-    return "Número não encontrado na memória ou não informado.", 404
 
 if __name__ == "__main__":
     with app.app_context():
