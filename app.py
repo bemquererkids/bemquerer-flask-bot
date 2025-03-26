@@ -148,9 +148,9 @@ def gerar_saudacao(numero, mensagem):
         saudacao_atual = "Boa noite"
 
     if saudacao_usuario_input and saudacao_usuario_input != saudacao_atual:
-        return f"{saudacao_atual} (vi que você mandou '{saudacao_usuario_input}', mas imagino que a correria do dia a dia nos confunda mesmo 😅)"
+        return f"{saudacao_atual}! (Vi que você digitou '{saudacao_usuario_input}', mas imagino que seja a correria do dia a dia 😅)"
 
-    return saudacao_usuario_input or saudacao_atual
+    return saudacao_atual
 
 def extrair_nome(mensagem):
     padroes = [
