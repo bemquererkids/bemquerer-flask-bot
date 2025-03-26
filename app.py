@@ -78,6 +78,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 contexto_clinica = ""
 faq_list = []
 nome_usuario = {}
+saudacao_usuario = {}
 
 # Funções auxiliares
 def carregar_contexto():
@@ -88,10 +89,15 @@ def carregar_faq():
     faqs = FAQ.query.all()
     return [{'Pergunta': f.question, 'Resposta': f.answer} for f in faqs]
 
+def obter_nome_salvo(numero):
+    lead = Lead.query.filter_by(phone=numero).order_by(Lead.created_at.desc()).first()
+    return lead.name if lead and lead.name else None
+
 def salvar_lead(numero, mensagem, resposta):
+    nome = nome_usuario.get(numero, obter_nome_salvo(numero) or "")
     lead = Lead(
         clinic_id=1,
-        name=nome_usuario.get(numero, ""),
+        name=nome,
         phone=numero,
         email=None,
         birth_date=None,
@@ -120,14 +126,31 @@ def verificar_faq(mensagem):
             resposta_encontrada = row['Resposta']
     return resposta_encontrada
 
-def gerar_saudacao():
-    agora = datetime.now().hour
-    if agora < 12:
+def detectar_saudacao_usuario(mensagem):
+    if "bom dia" in mensagem.lower():
         return "Bom dia"
-    elif 12 <= agora < 18:
+    if "boa tarde" in mensagem.lower():
         return "Boa tarde"
-    else:
+    if "boa noite" in mensagem.lower():
         return "Boa noite"
+    return None
+
+def gerar_saudacao(numero, mensagem):
+    saudacao_usuario_input = detectar_saudacao_usuario(mensagem)
+    agora = datetime.now().hour
+    saudacao_atual = ""
+
+    if agora < 12:
+        saudacao_atual = "Bom dia"
+    elif 12 <= agora < 18:
+        saudacao_atual = "Boa tarde"
+    else:
+        saudacao_atual = "Boa noite"
+
+    if saudacao_usuario_input and saudacao_usuario_input != saudacao_atual:
+        return f"{saudacao_atual} (vi que você mandou '{saudacao_usuario_input}', mas imagino que a correria do dia a dia nos confunda mesmo 😅)"
+
+    return saudacao_usuario_input or saudacao_atual
 
 def extrair_nome(mensagem):
     padroes = [
@@ -135,29 +158,33 @@ def extrair_nome(mensagem):
         r"me chamo ([A-Za-zÀ-ÿ']+)",
         r"sou o ([A-Za-zÀ-ÿ']+)",
         r"sou a ([A-Za-zÀ-ÿ']+)",
-        r"com ([A-Za-zÀ-ÿ']+)"
+        r"com ([A-Za-zÀ-ÿ']+)",
+        r"^([A-Za-zÀ-ÿ']{2,}(?: [A-Za-zÀ-ÿ']{2,})?)$"
     ]
     for padrao in padroes:
-        match = re.search(padrao, mensagem.lower())
+        match = re.search(padrao, mensagem.strip().lower())
         if match:
-            nome = match.group(1).capitalize()
-            if padrao.endswith("sou o ([A-Za-zÀ-ÿ']+)"):
+            nome = match.group(1).strip().title()
+            if padrao.startswith("sou o"):
                 return f"Sr. {nome}"
-            elif padrao.endswith("sou a ([A-Za-zÀ-ÿ']+)"):
+            elif padrao.startswith("sou a"):
                 return f"Sra. {nome}"
             return nome
     return None
 
 def gerar_resposta_ia(pergunta, numero):
-    saudacao = gerar_saudacao()
-    if numero not in nome_usuario:
-        nome_usuario[numero] = None
+    saudacao = gerar_saudacao(numero, pergunta)
+    nome_memoria = nome_usuario.get(numero)
+    nome_salvo = obter_nome_salvo(numero)
 
-    if nome_usuario[numero] is None:
-        nome = extrair_nome(pergunta)
-        if nome:
-            nome_usuario[numero] = nome
-            return f"{saudacao}, {nome}. Em que posso te acolher hoje?"
+    if not nome_memoria and nome_salvo:
+        nome_usuario[numero] = nome_salvo
+
+    if not nome_usuario.get(numero):
+        nome_extraido = extrair_nome(pergunta)
+        if nome_extraido:
+            nome_usuario[numero] = nome_extraido
+            return f"{saudacao}, {nome_extraido}. Em que posso te acolher hoje?"
         return f"{saudacao}! Com quem eu tenho o prazer de falar?"
 
     resposta = client.chat.completions.create(
