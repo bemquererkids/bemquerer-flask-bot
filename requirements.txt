@@ -50,6 +50,6 @@ yarl==1.18.3
 
 # Adicionados para LangChain
 langchain==0.1.17
+langchain-community==0.0.36
 langchain-core==0.1.52
-langchain-community==0.0.34
 langchain-openai==0.1.6
