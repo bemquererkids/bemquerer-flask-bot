@@ -165,27 +165,27 @@ def extrair_nome(mensagem):
 def responder_com_agente(pergunta):
     ferramentas = [
         Tool(
-            name="Consultar FAQ",
+            name="consultar_faq",
             func=lambda msg: verificar_faq(msg) or "Desculpe, não encontrei essa informação.",
             description="Responde dúvidas frequentes da clínica."
         ),
         Tool(
-            name="Verificar Horários",
+            name="verificar_horarios",
             func=lambda _: "Atendemos de segunda a sexta das 08h às 19h e aos sábados das 09h às 16h.",
             description="Retorna os horários e dias de atendimento."
         ),
         Tool(
-            name="Consultar Especialidades",
+            name="consultar_especialidades",
             func=lambda _: "Drª Vanessa Battistini: Odontopediatria, Pacientes Especiais, Ortodontia dos Maxilares e Invisalign. Drª Fernanda Battistini: Ortodontia. Drº Ewalt Zilse: Prótese, Lentes em Cerâmica, Implantes e Adulto. Drª Jaqueline: Odontopediatria. Drº André Martho: Sedação Endovenosa.",
             description="Lista especialidades e profissionais da clínica."
         ),
         Tool(
-            name="Saiba sobre Sedação",
+            name="saiba_sobre_sedacao",
             func=lambda _: "Utilizamos sedação endovenosa com supervisão médica para garantir conforto e segurança aos pacientes, especialmente os que possuem necessidades especiais.",
             description="Explica como funciona a sedação na clínica."
         ),
         Tool(
-            name="Agendamento",
+            name="agendamento",
             func=lambda _: "Podemos agendar diretamente por aqui! O atendimento é para você ou para seu filho(a)? Está com dor ou algum desconforto agora? Assim consigo verificar o melhor horário com carinho.",
             description="Ajuda a iniciar o processo de agendamento."
         )
@@ -216,9 +216,9 @@ def gerar_resposta_ia(pergunta, numero):
     resposta = responder_com_agente(pergunta)
 
     if re.search(r"\b(bom dia|boa tarde|boa noite)\b", pergunta.lower()):
-        resposta = re.sub(r"^(bom dia|boa tarde|boa noite)[,!.\"]*", "", resposta, flags=re.IGNORECASE)
+        resposta = re.sub(r"^(bom dia|boa tarde|boa noite)[,!.\"]*", "", resposta, flags=re.IGNORECASE).strip()
 
-    return f"{saudacao}, {nome_usuario[numero]}! {resposta.strip().capitalize()}"
+    return f"{saudacao}, {nome_usuario[numero]}! {resposta.capitalize()}"
 
 @app.route("/", methods=['POST'])
 def index():
