@@ -169,9 +169,6 @@ def gerar_resposta_ia(pergunta, numero):
             return f"{saudacao}, {nome_extraido}. Em que posso te acolher hoje?"
         return f"{saudacao}! Com quem eu tenho o prazer de falar?"
 
-    if any(p in pergunta.lower() for p in ["quero marcar", "quero agendar", "marcar consulta", "agendar consulta"]):
-        return f"{saudacao}, {nome_usuario[numero]}! O atendimento é para você ou para seu filho(a)? Está com alguma dor ou desconforto no momento?"
-
     resposta = client.chat.completions.create(
         model="gpt-4-turbo",
         messages=[
@@ -180,7 +177,12 @@ def gerar_resposta_ia(pergunta, numero):
         ]
     )
     conteudo = resposta.choices[0].message.content.strip()
-    return f"{saudacao}, {nome_usuario[numero]}! {conteudo}"
+
+    # Corrige caso o usuário tenha digitado uma saudação incorreta para o horário atual
+    if re.search(r"\b(bom dia|boa tarde|boa noite)\b", pergunta.lower()):
+        conteudo = re.sub(r"^(bom dia|boa tarde|boa noite)[,!.\s]*", "", conteudo, flags=re.IGNORECASE)
+
+    return f"{saudacao}, {nome_usuario[numero]}! {conteudo.strip().capitalize()}"
 
 @app.route("/", methods=['POST'])
 def index():
