@@ -56,6 +56,7 @@ class Lead(db.Model):
     sedation = db.Column(db.Boolean, default=False)
     allergies = db.Column(db.Text, nullable=True)
     medications = db.Column(db.Text, nullable=True)
+    message = db.Column(db.Text)
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     last_contact = db.Column(db.DateTime, default=db.func.current_timestamp())
