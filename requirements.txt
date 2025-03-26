@@ -13,7 +13,7 @@ distro==1.9.0
 Flask==2.3.3
 Flask-Admin==1.6.1
 Flask-SQLAlchemy==3.1.1
-Flask-Migrate
+Flask-Migrate==4.0.5
 frozenlist==1.5.0
 h11==0.14.0
 httpcore==1.0.7
@@ -34,7 +34,7 @@ pydantic_core==2.27.2
 PyJWT==2.10.1
 python-dateutil==2.9.0.post0
 pytz==2025.1
-python-dotenv
+python-dotenv==1.0.1
 requests==2.32.3
 six==1.17.0
 sniffio==1.3.1
@@ -47,3 +47,9 @@ urllib3==2.3.0
 Werkzeug==3.1.3
 WTForms==3.2.1
 yarl==1.18.3
+
+# Adicionados para LangChain
+langchain==0.1.17
+langchain-core==0.1.52
+langchain-community==0.0.34
+langchain-openai==0.1.6
