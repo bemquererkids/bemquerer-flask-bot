@@ -9,7 +9,9 @@ import time
 import random
 import difflib
 from openai import OpenAI
+from datetime import datetime
 from dotenv import load_dotenv
+import re
 
 load_dotenv()
 
@@ -57,11 +59,10 @@ class Lead(db.Model):
     allergies = db.Column(db.Text, nullable=True)
     medications = db.Column(db.Text, nullable=True)
     notes = db.Column(db.Text, nullable=True)
-    message = db.Column(db.Text)  # ✅ Esta linha precisa estar presente
-    response = db.Column(db.Text)  # ✅ Esta linha também
+    message = db.Column(db.Text)
+    response = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     last_contact = db.Column(db.DateTime, default=db.func.current_timestamp())
-
 
 # Flask-Admin
 admin = Admin(app, name='Bem-Querer Admin', template_mode='bootstrap3')
@@ -76,8 +77,8 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # Variáveis globais
 contexto_clinica = ""
 faq_list = []
+nome_usuario = {}  # Dict que armazena nome por telefone
 
-# Funções auxiliares
 def carregar_contexto():
     contexto = Context.query.first()
     return contexto.content if contexto else ""
@@ -89,7 +90,7 @@ def carregar_faq():
 def salvar_lead(numero, mensagem, resposta):
     lead = Lead(
         clinic_id=1,
-        name="",
+        name=nome_usuario.get(numero, ""),
         phone=numero,
         email=None,
         birth_date=None,
@@ -120,7 +121,46 @@ def verificar_faq(mensagem):
 
     return resposta_encontrada
 
-def gerar_resposta_ia(pergunta):
+def gerar_saudacao():
+    agora = datetime.now().hour
+    if agora < 12:
+        return "Bom dia"
+    elif 12 <= agora < 18:
+        return "Boa tarde"
+    else:
+        return "Boa noite"
+
+def extrair_nome(mensagem):
+    padroes = [
+        r"meu nome é ([A-Za-zÀ-ÿ']+)",
+        r"me chamo ([A-Za-zÀ-ÿ']+)",
+        r"sou o ([A-Za-zÀ-ÿ']+)",
+        r"sou a ([A-Za-zÀ-ÿ']+)"
+    ]
+    for padrao in padroes:
+        match = re.search(padrao, mensagem.lower())
+        if match:
+            nome = match.group(1).capitalize()
+            if padrao.endswith("sou o ([A-Za-zÀ-ÿ']+)"):
+                return f"Sr. {nome}"
+            elif padrao.endswith("sou a ([A-Za-zÀ-ÿ']+)"):
+                return f"Sra. {nome}"
+            return nome
+    return None
+
+def gerar_resposta_ia(pergunta, numero):
+    saudacao = gerar_saudacao()
+
+    if numero not in nome_usuario:
+        nome_usuario[numero] = None
+
+    if nome_usuario[numero] is None:
+        nome = extrair_nome(pergunta)
+        if nome:
+            nome_usuario[numero] = nome
+            return f"Perfeito, {nome}. Em que posso te acolher hoje?"
+        return f"{saudacao}! Com quem eu tenho o prazer de falar?"
+
     resposta = client.chat.completions.create(
         model="gpt-4-turbo",
         messages=[
@@ -128,26 +168,22 @@ def gerar_resposta_ia(pergunta):
             {"role": "user", "content": pergunta}
         ]
     )
-    return resposta.choices[0].message.content.strip()
+    conteudo = resposta.choices[0].message.content.strip()
+    return f"{saudacao}, {nome_usuario[numero]}! {conteudo}"
 
-# Rota principal com suporte a GET
-@app.route("/", methods=['GET', 'POST'])
+@app.route("/", methods=['POST'])
 def index():
-    if request.method == 'GET':
-        return "🚀 API da secretária virtual está ativa!", 200
-
     numero = request.form.get('From')
     mensagem = request.form.get('Body').strip()
 
     print(f"📥 Mensagem recebida de {numero}: {mensagem}")
 
     resposta_faq = verificar_faq(mensagem)
-
     if resposta_faq:
         resposta = resposta_faq
         print("✅ Resposta enviada pelo FAQ (Alta similaridade)")
     else:
-        resposta = gerar_resposta_ia(mensagem)
+        resposta = gerar_resposta_ia(mensagem, numero)
         print("🤖 Resposta gerada pela OpenAI")
 
     salvar_lead(numero, mensagem, resposta)
