@@ -1,3 +1,4 @@
+from flask_migrate import Migrate
 from flask import Flask, request, Response
 from twilio.twiml.messaging_response import MessagingResponse
 from flask_sqlalchemy import SQLAlchemy
@@ -8,7 +9,9 @@ import time
 import random
 import difflib
 from openai import OpenAI
-from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -18,6 +21,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'supersecretkey'
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 # Modelos
 class Clinic(db.Model):
@@ -53,8 +57,6 @@ class Lead(db.Model):
     allergies = db.Column(db.Text, nullable=True)
     medications = db.Column(db.Text, nullable=True)
     notes = db.Column(db.Text, nullable=True)
-    message = db.Column(db.Text)
-    response = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     last_contact = db.Column(db.DateTime, default=db.func.current_timestamp())
 
@@ -72,6 +74,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 contexto_clinica = ""
 faq_list = []
 
+# Funções auxiliares
 def carregar_contexto():
     contexto = Context.query.first()
     return contexto.content if contexto else ""
@@ -115,7 +118,6 @@ def verificar_faq(mensagem):
     return resposta_encontrada
 
 def gerar_resposta_ia(pergunta):
-    saudacao = gerar_saudacao_com_titulo(pergunta)
     resposta = client.chat.completions.create(
         model="gpt-4-turbo",
         messages=[
@@ -123,27 +125,14 @@ def gerar_resposta_ia(pergunta):
             {"role": "user", "content": pergunta}
         ]
     )
-    conteudo = resposta.choices[0].message.content.strip()
-    return f"{saudacao} {conteudo}" if saudacao else conteudo
+    return resposta.choices[0].message.content.strip()
 
-def gerar_saudacao_com_titulo(mensagem):
-    agora = datetime.now().hour
-    if agora < 12:
-        periodo = "Bom dia"
-    elif 12 <= agora < 18:
-        periodo = "Boa tarde"
-    else:
-        periodo = "Boa noite"
-
-    if "meu filho" in mensagem.lower() or "minha filha" in mensagem.lower() or "criança" in mensagem.lower():
-        return f"{periodo}, mamãe ou papai! 😊"
-    elif "dor" in mensagem.lower() or "urgência" in mensagem.lower():
-        return f"{periodo}! Sentimos muito por isso. Vamos acolher você da melhor forma."
-    else:
-        return f"{periodo}! Seja muito bem-vindo à Clínica Bem-Querer."
-
-@app.route("/", methods=['POST'])
+# Rota principal com suporte a GET
+@app.route("/", methods=['GET', 'POST'])
 def index():
+    if request.method == 'GET':
+        return "🚀 API da secretária virtual está ativa!", 200
+
     numero = request.form.get('From')
     mensagem = request.form.get('Body').strip()
 
