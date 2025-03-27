@@ -111,31 +111,30 @@ def buscar_nome_paciente(user_phone):
     lead = Lead.query.filter_by(phone=user_phone).order_by(Lead.created_at.desc()).first()
     return lead.name if lead and lead.name else ""
 
-# Função para determinar a saudação correta
-def gerar_saudacao():
-    agora = datetime.now(pytz.timezone("America/Sao_Paulo")).hour
-    if agora < 12:
-        return "Bom dia"
-    elif 12 <= agora < 18:
-        return "Boa tarde"
-    else:
-        return "Boa noite"
+# Função para buscar o histórico recente do paciente
+def buscar_historico(user_phone, limite=5):
+    user_phone = user_phone.replace("whatsapp:", "")  # Remover prefixo Twilio
+    historico = ChatHistory.query.filter_by(user_phone=user_phone).order_by(ChatHistory.timestamp.desc()).limit(limite).all()
+    
+    if not historico:
+        return []
+    
+    return [
+        HumanMessage(content=msg.message) if idx % 2 == 0 else AIMessage(content=msg.response)
+        for idx, msg in enumerate(historico)
+    ]
 
-# Ajuste do prompt para corrigir os problemas
+# Ajuste do prompt para melhorar a interação
 def gerar_resposta_ia(pergunta, numero):
     historico = buscar_historico(numero)
     nome_paciente = buscar_nome_paciente(numero)
     profissionais = buscar_profissionais()
-    previsao_tempo = obter_previsao_tempo()
     profissionais_texto = "\n".join([f"- {esp}: {nome}" for esp, nome in profissionais.items()])
-    saudacao = gerar_saudacao()
-    saudacao_personalizada = f"{saudacao}, {nome_paciente}!" if nome_paciente else saudacao
     
     prompt = [
-        SystemMessage(content="Você é uma secretária virtual. Todas as respostas devem ser em português, naturais e sem repetições desnecessárias. Mencione o nome do paciente se já foi informado. Não invente profissionais que não estão no banco de dados. Se perguntarem sobre estacionamento, informe corretamente. Se relevante, mencione a previsão do tempo."),
+        SystemMessage(content="Você é uma secretária virtual. Todas as respostas devem ser em português, naturais e sem repetições desnecessárias. Mencione o nome do paciente se já foi informado. Não invente profissionais que não estão no banco de dados. Se perguntarem sobre estacionamento, informe corretamente."),
         *historico,
-        HumanMessage(content=f"{saudacao_personalizada} Agora, o usuário enviou uma nova pergunta: {pergunta}"),
-        SystemMessage(content=f"Previsão do tempo atual: {previsao_tempo}"),
+        HumanMessage(content=f"Agora, o usuário enviou uma nova pergunta: {pergunta}"),
         SystemMessage(content="Sempre mencione o profissional correto para o tratamento solicitado. Se for um agendamento, pergunte primeiro se deseja mais informações antes de oferecer o agendamento. Responda com clareza, empatia e um tom acolhedor.")
     ]
     
