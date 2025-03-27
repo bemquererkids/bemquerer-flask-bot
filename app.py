@@ -13,7 +13,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 import re
 from langchain.agents import initialize_agent, Tool
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.agents.agent_types import AgentType
 from langchain.schema import SystemMessage
 import pytz
@@ -143,121 +143,29 @@ def gerar_saudacao():
     else:
         return "Boa noite"
 
-def extrair_nome(mensagem):
-    padroes = [
-        r"meu nome é ([A-Za-zÀ-ÿ']+)",
-        r"me chamo ([A-Za-zÀ-ÿ']+)",
-        r"sou o ([A-Za-zÀ-ÿ']+)",
-        r"sou a ([A-Za-zÀ-ÿ']+)",
-        r"com ([A-Za-zÀ-ÿ']+)",
-        r"^([A-Za-zÀ-ÿ']{2,}(?: [A-Za-zÀ-ÿ']{2,})?)$"
-    ]
-    for padrao in padroes:
-        match = re.search(padrao, mensagem.strip().lower())
-        if match:
-            nome = match.group(1).strip().title()
-            if padrao.startswith("sou o"):
-                return f"Sr. {nome}"
-            elif padrao.startswith("sou a"):
-                return f"Sra. {nome}"
-            return nome
-    return None
-
 def responder_com_agente(pergunta):
-    ferramentas = [
-        Tool(
-            name="consultar_faq",
-            func=lambda msg: verificar_faq(msg) or "Desculpe, não encontrei essa informação.",
-            description="Responde dúvidas frequentes da clínica."
-        ),
-        Tool(
-            name="verificar_horarios",
-            func=lambda _: "Atendemos de segunda a sexta das 08h às 19h e aos sábados das 09h às 16h.",
-            description="Retorna os horários e dias de atendimento."
-        ),
-        Tool(
-            name="consultar_especialidades",
-            func=lambda _: "Drª Vanessa Battistini: Odontopediatria, Pacientes Especiais, Ortodontia dos Maxilares e Invisalign. Drª Fernanda Battistini: Ortodontia. Drº Ewalt Zilse: Prótese, Lentes em Cerâmica, Implantes e Adulto. Drª Jaqueline: Odontopediatria. Drº André Martho: Sedação Endovenosa.",
-            description="Lista especialidades e profissionais da clínica."
-        ),
-        Tool(
-            name="saiba_sobre_sedacao",
-            func=lambda _: "Utilizamos sedação endovenosa com supervisão médica para garantir conforto e segurança aos pacientes, especialmente os que possuem necessidades especiais.",
-            description="Explica como funciona a sedação na clínica."
-        ),
-        Tool(
-            name="agendamento",
-            func=lambda _: "O atendimento é para você ou para seu filho(a)? Se for para a criança, poderia me informar o nome e a idade? Está com dor ou desconforto no momento? Assim consigo verificar o melhor horário com carinho.",
-            description="Ajuda a iniciar o processo de agendamento com empatia."
-        )
-    ]
-    agente = initialize_agent(
-        tools=ferramentas,
-        llm=llm,
-        agent=AgentType.OPENAI_FUNCTIONS,
-        verbose=False
-    )
-    return agente.run(pergunta)
+    agente = initialize_agent(tools=[], llm=llm, agent=AgentType.OPENAI_FUNCTIONS, verbose=False)
+    return agente.invoke(pergunta)
 
 def gerar_resposta_ia(pergunta, numero):
     saudacao = gerar_saudacao()
-    nome_memoria = nome_usuario.get(numero)
-    nome_salvo = obter_nome_salvo(numero)
-
-    if not nome_memoria and nome_salvo:
-        nome_usuario[numero] = nome_salvo
-
-    if not nome_usuario.get(numero):
-        nome_extraido = extrair_nome(pergunta)
-        if nome_extraido:
-            nome_usuario[numero] = nome_extraido
-            return f"{saudacao}, {nome_extraido}. Em que posso te acolher hoje?"
-        return f"{saudacao}! Com quem eu tenho o prazer de falar?"
-
+    nome = nome_usuario.get(numero, obter_nome_salvo(numero) or "")
     resposta = responder_com_agente(pergunta)
-    acolhimento = "Só pra confirmar, esse atendimento é pra você ou para seu filho(a)? Está com alguma dor ou desconforto no momento? Quero garantir o melhor cuidado."
-    return f"{saudacao}, {nome_usuario[numero]}! {resposta.capitalize()} {acolhimento}"
+    return f"{saudacao}, {nome}! {resposta.capitalize()}"
 
 @app.route("/", methods=['POST'])
 def index():
     numero = request.form.get('From')
     mensagem = request.form.get('Body').strip()
-
-    print(f"📥 Mensagem recebida de {numero}: {mensagem}")
-
-    resposta_faq = verificar_faq(mensagem)
-    if resposta_faq:
-        resposta = resposta_faq
-        print("✅ Resposta enviada pelo FAQ (Alta similaridade)")
-    else:
-        resposta = gerar_resposta_ia(mensagem, numero)
-        print("🤖 Resposta gerada pela IA com LangChain")
-
+    resposta = gerar_resposta_ia(mensagem, numero)
     salvar_lead(numero, mensagem, resposta)
-
-    delay = random.randint(2, 4)
-    time.sleep(delay)
-
     resp = MessagingResponse()
     resp.message(resposta)
-
-    print(f"✅ Resposta enviada para {numero}")
-
-    response = Response(str(resp), mimetype='application/xml')
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    return response, 200
-
-@app.route("/", methods=['GET'])
-def health_check():
-    return "🚀 API da Secretária Virtual está rodando!", 200
+    return Response(str(resp), mimetype='application/xml'), 200
 
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-        print("✅ Tabelas criadas ou atualizadas!")
         contexto_clinica = carregar_contexto()
         faq_list = carregar_faq()
-        print("🚀 Contexto e FAQ carregados!")
-
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=True)
