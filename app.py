@@ -101,49 +101,29 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # LangChain Config
 llm = ChatOpenAI(temperature=0, model_name="gpt-4", openai_api_key=os.getenv("OPENAI_API_KEY"))
 
-# Função para buscar os profissionais da clínica
-def buscar_profissionais():
-    profissionais = Professional.query.all()
-    if not profissionais:
-        return "No momento, nossa clínica conta com uma equipe especializada apenas em odontologia."
-    return "\n".join([f"- {prof.name}, especialista em {prof.specialty}" for prof in profissionais])
+# Função para buscar resposta na FAQ
+def buscar_resposta_faq(pergunta):
+    faqs = FAQ.query.all()
+    for faq in faqs:
+        if pergunta.lower() in faq.question.lower():
+            return faq.answer
+    return None
 
-# Função para salvar conversa
-def salvar_conversa(user_phone, message, response):
-    chat_entry = ChatHistory(user_phone=user_phone, message=message, response=response)
-    db.session.add(chat_entry)
-    db.session.commit()
-
-# Função para buscar o nome do paciente se já foi mencionado
-def buscar_nome_paciente(user_phone):
-    lead = Lead.query.filter_by(phone=user_phone).order_by(Lead.created_at.desc()).first()
-    return lead.name if lead and lead.name else ""
-
-# Função para buscar o histórico recente do paciente
-def buscar_historico(user_phone, limite=5):
-    user_phone = user_phone.replace("whatsapp:", "")  # Remover prefixo Twilio
-    historico = ChatHistory.query.filter_by(user_phone=user_phone).order_by(ChatHistory.timestamp.desc()).limit(limite).all()
-    
-    if not historico:
-        return []
-    
-    return [
-        HumanMessage(content=msg.message) if idx % 2 == 0 else AIMessage(content=msg.response)
-        for idx, msg in enumerate(historico)
-    ]
-
-# Função para gerar resposta mais precisa
+# Função para gerar resposta
 def gerar_resposta_ia(pergunta, numero):
+    resposta_faq = buscar_resposta_faq(pergunta)
+    if resposta_faq:
+        return resposta_faq
+    
     historico = buscar_historico(numero)
-    nome_paciente = buscar_nome_paciente(numero)
     profissionais = buscar_profissionais()
     
     prompt = [
-        SystemMessage(content="Você é uma secretária virtual de uma clínica odontológica. Todas as respostas devem ser em português, naturais e sem repetições desnecessárias. Não invente informações sobre a clínica. Se perguntarem sobre os profissionais, informe apenas os que estão no banco de dados. Se não houver profissionais cadastrados, diga que a clínica tem especialistas apenas em odontologia."),
+        SystemMessage(content=f"Você é uma secretária virtual de uma clínica odontológica. Todas as respostas devem ser em português, naturais e sem repetições desnecessárias. Se perguntarem sobre profissionais, informe apenas os cadastrados."),
         *historico,
         HumanMessage(content=f"Agora, o usuário enviou uma nova pergunta: {pergunta}"),
         SystemMessage(content=f"Profissionais da clínica:\n{profissionais}"),
-        SystemMessage(content="Responda de forma educada e objetiva. Não force agendamentos se o paciente apenas quiser informações.")
+        SystemMessage(content="Responda de forma clara, sem respostas genéricas e evitando redundância.")
     ]
     
     resposta_obj = llm.invoke(prompt)
