@@ -111,53 +111,35 @@ def buscar_nome_paciente(user_phone):
     lead = Lead.query.filter_by(phone=user_phone).order_by(Lead.created_at.desc()).first()
     return lead.name if lead and lead.name else ""
 
-# Função para buscar o histórico recente do paciente
-def buscar_historico(user_phone, limite=5):
-    user_phone = user_phone.replace("whatsapp:", "")  # Remover prefixo Twilio
-    historico = ChatHistory.query.filter_by(user_phone=user_phone).order_by(ChatHistory.timestamp.desc()).limit(limite).all()
-    
-    if not historico:
-        return ""
-    
-    return [
-        HumanMessage(content=msg.message) if idx % 2 == 0 else AIMessage(content=msg.response)
-        for idx, msg in enumerate(historico)
-    ]
+# Função para determinar a saudação correta
+def gerar_saudacao():
+    agora = datetime.now(pytz.timezone("America/Sao_Paulo")).hour
+    if agora < 12:
+        return "Bom dia"
+    elif 12 <= agora < 18:
+        return "Boa tarde"
+    else:
+        return "Boa noite"
 
-# Função para salvar a conversa
-def salvar_conversa(user_phone, message, response):
-    chat_entry = ChatHistory(user_phone=user_phone, message=message, response=response)
-    db.session.add(chat_entry)
-    db.session.commit()
-
-# Função para obter previsão do tempo
-def obter_previsao_tempo():
-    try:
-        response = requests.get("https://wttr.in/Santo+André?format=%C+%t")
-        return response.text if response.status_code == 200 else ""
-    except:
-        return ""
-
-# Ajuste do prompt para melhorar a interação
+# Ajuste do prompt para corrigir os problemas
 def gerar_resposta_ia(pergunta, numero):
     historico = buscar_historico(numero)
     nome_paciente = buscar_nome_paciente(numero)
     profissionais = buscar_profissionais()
     previsao_tempo = obter_previsao_tempo()
     profissionais_texto = "\n".join([f"- {esp}: {nome}" for esp, nome in profissionais.items()])
-    
-    saudacao = "" if not nome_paciente else f"Olá, {nome_paciente}! "
+    saudacao = gerar_saudacao()
+    saudacao_personalizada = f"{saudacao}, {nome_paciente}!" if nome_paciente else saudacao
     
     prompt = [
-        SystemMessage(content="Você é uma secretária virtual. Todas as respostas devem ser em português, naturais e sem repetições desnecessárias. Mencione o nome do paciente se já foi informado. Se perguntarem sobre estacionamento, informe que é permitido estacionar na rua, mas devido à alta demanda, pode ser difícil encontrar vagas. Informe também que a clínica já solicitou sinalização para deficientes. Se relevante, mencione a previsão do tempo para ajudar no planejamento da visita."),
+        SystemMessage(content="Você é uma secretária virtual. Todas as respostas devem ser em português, naturais e sem repetições desnecessárias. Mencione o nome do paciente se já foi informado. Não invente profissionais que não estão no banco de dados. Se perguntarem sobre estacionamento, informe corretamente. Se relevante, mencione a previsão do tempo."),
         *historico,
-        HumanMessage(content=f"{saudacao}Agora, o usuário enviou uma nova pergunta: {pergunta}"),
+        HumanMessage(content=f"{saudacao_personalizada} Agora, o usuário enviou uma nova pergunta: {pergunta}"),
         SystemMessage(content=f"Previsão do tempo atual: {previsao_tempo}"),
-        SystemMessage(content="Sempre mencione o profissional correto para o tratamento solicitado. Se for um agendamento, pergunte primeiro o período (manhã ou tarde) antes de solicitar o dia específico. Responda com clareza, empatia e um tom acolhedor.")
+        SystemMessage(content="Sempre mencione o profissional correto para o tratamento solicitado. Se for um agendamento, pergunte primeiro se deseja mais informações antes de oferecer o agendamento. Responda com clareza, empatia e um tom acolhedor.")
     ]
     
     resposta_obj = llm.invoke(prompt)
-    
     resposta = resposta_obj.content if isinstance(resposta_obj, AIMessage) else str(resposta_obj)
     salvar_conversa(numero, pergunta, resposta)
     return resposta
