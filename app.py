@@ -104,44 +104,22 @@ llm = ChatOpenAI(temperature=0, model_name="gpt-4", openai_api_key=os.getenv("OP
 # Função para buscar os profissionais da clínica
 def buscar_profissionais():
     profissionais = Professional.query.all()
-    return {prof.specialty: prof.name for prof in profissionais}
+    if not profissionais:
+        return "No momento, nossa clínica conta com uma equipe especializada apenas em odontologia."
+    return "\n".join([f"- {prof.name}, especialista em {prof.specialty}" for prof in profissionais])
 
-# Função para buscar o nome do paciente se já foi mencionado
-def buscar_nome_paciente(user_phone):
-    lead = Lead.query.filter_by(phone=user_phone).order_by(Lead.created_at.desc()).first()
-    return lead.name if lead and lead.name else ""
-
-# Função para buscar o histórico recente do paciente
-def buscar_historico(user_phone, limite=5):
-    user_phone = user_phone.replace("whatsapp:", "")  # Remover prefixo Twilio
-    historico = ChatHistory.query.filter_by(user_phone=user_phone).order_by(ChatHistory.timestamp.desc()).limit(limite).all()
-    
-    if not historico:
-        return []
-    
-    return [
-        HumanMessage(content=msg.message) if idx % 2 == 0 else AIMessage(content=msg.response)
-        for idx, msg in enumerate(historico)
-    ]
-
-# Função para salvar a conversa
-def salvar_conversa(user_phone, message, response):
-    chat_entry = ChatHistory(user_phone=user_phone, message=message, response=response)
-    db.session.add(chat_entry)
-    db.session.commit()
-
-# Ajuste do prompt para melhorar a interação
+# Função para gerar resposta mais precisa
 def gerar_resposta_ia(pergunta, numero):
     historico = buscar_historico(numero)
     nome_paciente = buscar_nome_paciente(numero)
     profissionais = buscar_profissionais()
-    profissionais_texto = "\n".join([f"- {esp}: {nome}" for esp, nome in profissionais.items()])
     
     prompt = [
-        SystemMessage(content="Você é uma secretária virtual. Todas as respostas devem ser em português, naturais e sem repetições desnecessárias. Mencione o nome do paciente se já foi informado. Não invente profissionais que não estão no banco de dados. Se perguntarem sobre estacionamento, informe corretamente."),
+        SystemMessage(content="Você é uma secretária virtual de uma clínica odontológica. Todas as respostas devem ser em português, naturais e sem repetições desnecessárias. Não invente informações sobre a clínica. Se perguntarem sobre os profissionais, informe apenas os que estão no banco de dados. Se não houver profissionais cadastrados, diga que a clínica tem especialistas apenas em odontologia."),
         *historico,
         HumanMessage(content=f"Agora, o usuário enviou uma nova pergunta: {pergunta}"),
-        SystemMessage(content="Sempre mencione o profissional correto para o tratamento solicitado. Se for um agendamento, pergunte primeiro se deseja mais informações antes de oferecer o agendamento. Responda com clareza, empatia e um tom acolhedor.")
+        SystemMessage(content=f"Profissionais da clínica:\n{profissionais}"),
+        SystemMessage(content="Responda de forma educada e objetiva. Não force agendamentos se o paciente apenas quiser informações.")
     ]
     
     resposta_obj = llm.invoke(prompt)
