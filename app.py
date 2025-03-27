@@ -121,6 +121,13 @@ def buscar_historico(user_phone, limite=5):
         for idx, msg in enumerate(historico)
     ]
 
+# Função para salvar a conversa no banco de dados
+def salvar_conversa(user_phone, pergunta, resposta):
+    user_phone = user_phone.replace("whatsapp:", "")  # Remover prefixo Twilio
+    nova_conversa = ChatHistory(user_phone=user_phone, message=pergunta, response=resposta)
+    db.session.add(nova_conversa)
+    db.session.commit()
+
 # Função para buscar resposta na FAQ
 def buscar_resposta_faq(pergunta):
     faqs = FAQ.query.all()
