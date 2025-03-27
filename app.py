@@ -15,7 +15,7 @@ import re
 from langchain.agents import initialize_agent, Tool
 from langchain_openai import ChatOpenAI
 from langchain.agents.agent_types import AgentType
-from langchain.schema import SystemMessage
+from langchain.schema import SystemMessage, AIMessage
 import pytz
 
 load_dotenv()
@@ -105,6 +105,8 @@ def buscar_historico(user_phone, limite=5):
 
 # Função para salvar a conversa
 def salvar_conversa(user_phone, message, response):
+    if not isinstance(response, str):  
+        response = str(response)  # Garante que será salvo como string
     chat_entry = ChatHistory(user_phone=user_phone, message=message, response=response)
     db.session.add(chat_entry)
     db.session.commit()
@@ -121,8 +123,15 @@ def gerar_resposta_ia(pergunta, numero):
     {pergunta}
 
     Responda com clareza e carinho."""
-    resposta = llm.invoke(prompt)
-    salvar_conversa(numero, pergunta, resposta)
+    
+    resposta_obj = llm.invoke(prompt)
+    
+    if isinstance(resposta_obj, AIMessage):
+        resposta = resposta_obj.content  # Pega apenas o texto da resposta
+    else:
+        resposta = str(resposta_obj)  # Converte para string caso seja outro tipo
+
+    salvar_conversa(numero, pergunta, resposta)  # Salvar no banco corretamente
     return resposta
 
 @app.route("/", methods=['POST'])
