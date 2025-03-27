@@ -17,6 +17,7 @@ from langchain_openai import ChatOpenAI
 from langchain.agents.agent_types import AgentType
 from langchain.schema import SystemMessage, AIMessage, HumanMessage
 import pytz
+import requests
 
 load_dotenv()
 
@@ -118,34 +119,32 @@ def buscar_historico(user_phone, limite=5):
         for idx, msg in enumerate(historico)
     ]
 
-# Função para salvar a conversa
-def salvar_conversa(user_phone, message, response):
-    if not isinstance(response, str):  
-        response = str(response)  # Garante que será salvo como string
-    chat_entry = ChatHistory(user_phone=user_phone, message=message, response=response)
-    db.session.add(chat_entry)
-    db.session.commit()
+# Função para obter previsão do tempo
+def obter_previsao_tempo():
+    try:
+        response = requests.get("https://wttr.in/Santo+André?format=%C+%t")
+        return response.text if response.status_code == 200 else ""
+    except:
+        return ""
 
-# Ajuste do prompt para incluir os profissionais corretos e melhorar a interação
+# Ajuste do prompt para aprimorar a experiência do usuário
 def gerar_resposta_ia(pergunta, numero):
     historico = buscar_historico(numero)
     profissionais = buscar_profissionais()
+    previsao_tempo = obter_previsao_tempo()
     profissionais_texto = "\n".join([f"- {esp}: {nome}" for esp, nome in profissionais.items()])
     
     prompt = [
-        SystemMessage(content="Você é uma secretária virtual da Bem-Querer Odontologia. Todas as respostas devem ser em português. Responda sempre de forma clara e objetiva."),
+        SystemMessage(content="Você é uma secretária virtual. Todas as respostas devem ser em português, naturais e sem repetições desnecessárias. Mencione o nome do paciente se já foi informado. Se perguntarem sobre estacionamento, informe que é permitido estacionar na rua, mas devido à alta demanda, pode ser difícil encontrar vagas. Informe também que a clínica já solicitou sinalização para deficientes. Se relevante, mencione a previsão do tempo para ajudar no planejamento da visita."),
         *historico,
         HumanMessage(content=f"Agora, o usuário enviou uma nova pergunta: {pergunta}"),
+        SystemMessage(content=f"Previsão do tempo atual: {previsao_tempo}"),
         SystemMessage(content="Sempre mencione o profissional correto para o tratamento solicitado. Se for um agendamento, pergunte primeiro o período (manhã ou tarde) antes de solicitar o dia específico. Responda com clareza, empatia e um tom acolhedor.")
     ]
     
     resposta_obj = llm.invoke(prompt)
     
-    if isinstance(resposta_obj, AIMessage):
-        resposta = resposta_obj.content  # Pega apenas o texto da resposta
-    else:
-        resposta = str(resposta_obj)  # Converte para string caso seja outro tipo
-
+    resposta = resposta_obj.content if isinstance(resposta_obj, AIMessage) else str(resposta_obj)
     salvar_conversa(numero, pergunta, resposta)  # Salvar no banco corretamente
     return resposta
 
