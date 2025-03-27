@@ -15,7 +15,7 @@ import re
 from langchain.agents import initialize_agent, Tool
 from langchain_openai import ChatOpenAI
 from langchain.agents.agent_types import AgentType
-from langchain.schema import SystemMessage, AIMessage
+from langchain.schema import SystemMessage, AIMessage, HumanMessage
 import pytz
 
 load_dotenv()
@@ -98,7 +98,7 @@ admin.add_view(ModelView(ChatHistory, db.session))
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # LangChain Config
-llm = ChatOpenAI(temperature=0, model_name="gpt-4")
+llm = ChatOpenAI(temperature=0, model_name="gpt-4", openai_api_key=os.getenv("OPENAI_API_KEY"), model_kwargs={"language": "pt"})
 
 # Função para buscar os profissionais da clínica
 def buscar_profissionais():
@@ -113,7 +113,10 @@ def buscar_historico(user_phone, limite=5):
     if not historico:
         return ""
     
-    return "\n".join([f"Paciente: {msg.message}\nIA: {msg.response}" for msg in historico])
+    return [
+        HumanMessage(content=msg.message) if idx % 2 == 0 else AIMessage(content=msg.response)
+        for idx, msg in enumerate(historico)
+    ]
 
 # Função para salvar a conversa
 def salvar_conversa(user_phone, message, response):
@@ -129,18 +132,12 @@ def gerar_resposta_ia(pergunta, numero):
     profissionais = buscar_profissionais()
     profissionais_texto = "\n".join([f"- {esp}: {nome}" for esp, nome in profissionais.items()])
     
-    prompt = f"""Você é uma secretária virtual da Bem-Querer Odontologia.
-
-    Aqui está o histórico da conversa:
-    {historico}
-
-    Lista de profissionais da clínica e suas especialidades:
-    {profissionais_texto}
-
-    Agora, o usuário enviou uma nova pergunta:
-    {pergunta}
-
-    Sempre mencione o profissional correto para o tratamento solicitado. Se for um agendamento, pergunte primeiro o período (manhã ou tarde) antes de solicitar o dia específico. Responda com clareza, empatia e um tom acolhedor."""
+    prompt = [
+        SystemMessage(content="Você é uma secretária virtual da Bem-Querer Odontologia. Todas as respostas devem ser em português."),
+        *historico,
+        HumanMessage(content=f"Agora, o usuário enviou uma nova pergunta: {pergunta}"),
+        SystemMessage(content="Sempre mencione o profissional correto para o tratamento solicitado. Se for um agendamento, pergunte primeiro o período (manhã ou tarde) antes de solicitar o dia específico. Responda com clareza, empatia e um tom acolhedor.")
+    ]
     
     resposta_obj = llm.invoke(prompt)
     
