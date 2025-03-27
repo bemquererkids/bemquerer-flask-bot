@@ -101,6 +101,13 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # LangChain Config
 llm = ChatOpenAI(temperature=0, model_name="gpt-4", openai_api_key=os.getenv("OPENAI_API_KEY"))
 
+# Função para buscar os profissionais da clínica
+def buscar_profissionais():
+    profissionais = Professional.query.all()
+    if not profissionais:
+        return "Atualmente, temos uma equipe especializada apenas em odontologia."
+    return "\n".join([f"- {prof.name}, especialista em {prof.specialty}" for prof in profissionais])
+
 # Função para buscar histórico de conversas
 def buscar_historico(user_phone, limite=5):
     user_phone = user_phone.replace("whatsapp:", "")  # Remover prefixo Twilio
