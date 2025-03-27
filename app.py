@@ -98,7 +98,7 @@ admin.add_view(ModelView(ChatHistory, db.session))
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # LangChain Config
-llm = ChatOpenAI(temperature=0, model_name="gpt-4", openai_api_key=os.getenv("OPENAI_API_KEY"), model_kwargs={"language": "pt"})
+llm = ChatOpenAI(temperature=0, model_name="gpt-4", openai_api_key=os.getenv("OPENAI_API_KEY"))
 
 # Função para buscar os profissionais da clínica
 def buscar_profissionais():
@@ -133,7 +133,7 @@ def gerar_resposta_ia(pergunta, numero):
     profissionais_texto = "\n".join([f"- {esp}: {nome}" for esp, nome in profissionais.items()])
     
     prompt = [
-        SystemMessage(content="Você é uma secretária virtual da Bem-Querer Odontologia. Todas as respostas devem ser em português."),
+        SystemMessage(content="Você é uma secretária virtual da Bem-Querer Odontologia. Todas as respostas devem ser em português. Responda sempre de forma clara e objetiva."),
         *historico,
         HumanMessage(content=f"Agora, o usuário enviou uma nova pergunta: {pergunta}"),
         SystemMessage(content="Sempre mencione o profissional correto para o tratamento solicitado. Se for um agendamento, pergunte primeiro o período (manhã ou tarde) antes de solicitar o dia específico. Responda com clareza, empatia e um tom acolhedor.")
