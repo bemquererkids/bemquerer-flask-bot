@@ -101,74 +101,25 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # LangChain Config
 llm = ChatOpenAI(temperature=0, model_name="gpt-4", openai_api_key=os.getenv("OPENAI_API_KEY"))
 
-# Função para buscar os profissionais da clínica
-def buscar_profissionais():
-    profissionais = Professional.query.all()
-    if not profissionais:
-        return "Atualmente, temos uma equipe especializada apenas em odontologia."
-    return "\n".join([f"- {prof.name}, especialista em {prof.specialty}" for prof in profissionais])
-
-# Função para buscar histórico de conversas
-def buscar_historico(user_phone, limite=5):
-    user_phone = user_phone.replace("whatsapp:", "")  # Remover prefixo Twilio
-    historico = ChatHistory.query.filter_by(user_phone=user_phone).order_by(ChatHistory.timestamp.desc()).limit(limite).all()
-    
-    if not historico:
-        return []
-    
-    return [
-        HumanMessage(content=msg.message) if idx % 2 == 0 else AIMessage(content=msg.response)
-        for idx, msg in enumerate(historico)
-    ]
-
-# Função para salvar a conversa no banco de dados
-def salvar_conversa(user_phone, pergunta, resposta):
-    user_phone = user_phone.replace("whatsapp:", "")  # Remover prefixo Twilio
-    nova_conversa = ChatHistory(user_phone=user_phone, message=pergunta, response=resposta)
-    db.session.add(nova_conversa)
-    db.session.commit()
-
 # Função para buscar resposta na FAQ
 def buscar_resposta_faq(pergunta):
     faqs = FAQ.query.all()
     for faq in faqs:
         if pergunta.lower() in faq.question.lower():
             return faq.answer
+
+    # Se a pergunta for sobre atendimento TEA e não houver resposta na FAQ, buscar o profissional responsável
+    if any(termo in pergunta.lower() for termo in ["autismo", "autista", "paciente especial", "TEA"]):
+        profissional_tea = Professional.query.filter(Professional.specialty.ilike("%pacientes especiais%")).first()
+        if profissional_tea:
+            return (f"Sim, atendemos pacientes com TEA e necessidades especiais. "
+                    f"O atendimento é realizado pela {profissional_tea.name}, que tem experiência e formação na área. "
+                    "Nossa equipe utiliza técnicas de condicionamento e adaptação para tornar a consulta confortável. "
+                    "Gostaria de mais informações ou deseja marcar uma consulta?")
+
+        return ("Sim, atendemos pacientes com TEA e necessidades especiais. "
+                "Nossa equipe é especializada e utiliza um ambiente adaptado para garantir conforto e acolhimento. "
+                "Utilizamos técnicas de condicionamento e adaptação gradual para que a experiência do paciente seja tranquila. "
+                "Gostaria de mais informações ou deseja marcar uma consulta?")
+
     return None
-
-# Função para gerar resposta
-def gerar_resposta_ia(pergunta, numero):
-    resposta_faq = buscar_resposta_faq(pergunta)
-    if resposta_faq:
-        return resposta_faq
-    
-    historico = buscar_historico(numero)
-    profissionais = buscar_profissionais()
-    
-    prompt = [
-        SystemMessage(content=f"Você é uma secretária virtual de uma clínica odontológica. Todas as respostas devem ser em português, naturais e sem repetições desnecessárias. Se perguntarem sobre profissionais, informe apenas os cadastrados."),
-        *historico,
-        HumanMessage(content=f"Agora, o usuário enviou uma nova pergunta: {pergunta}"),
-        SystemMessage(content=f"Profissionais da clínica:\n{profissionais}"),
-        SystemMessage(content="Responda de forma clara, sem respostas genéricas e evitando redundância.")
-    ]
-    
-    resposta_obj = llm.invoke(prompt)
-    resposta = resposta_obj.content if isinstance(resposta_obj, AIMessage) else str(resposta_obj)
-    salvar_conversa(numero, pergunta, resposta)
-    return resposta
-
-@app.route("/", methods=['POST'])
-def index():
-    numero = request.form.get('From')
-    mensagem = request.form.get('Body').strip()
-    resposta = gerar_resposta_ia(mensagem, numero)
-    salvar_conversa(numero, mensagem, resposta)
-    resp = MessagingResponse()
-    resp.message(resposta)
-    return Response(str(resp), mimetype='application/xml'), 200
-
-if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=True)
