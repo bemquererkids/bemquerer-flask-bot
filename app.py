@@ -108,6 +108,12 @@ def buscar_profissionais():
         return "No momento, nossa clínica conta com uma equipe especializada apenas em odontologia."
     return "\n".join([f"- {prof.name}, especialista em {prof.specialty}" for prof in profissionais])
 
+# Função para salvar conversa
+def salvar_conversa(user_phone, message, response):
+    chat_entry = ChatHistory(user_phone=user_phone, message=message, response=response)
+    db.session.add(chat_entry)
+    db.session.commit()
+
 # Função para buscar o nome do paciente se já foi mencionado
 def buscar_nome_paciente(user_phone):
     lead = Lead.query.filter_by(phone=user_phone).order_by(Lead.created_at.desc()).first()
