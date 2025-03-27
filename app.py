@@ -106,6 +106,11 @@ def buscar_profissionais():
     profissionais = Professional.query.all()
     return {prof.specialty: prof.name for prof in profissionais}
 
+# Função para buscar o nome do paciente se já foi mencionado
+def buscar_nome_paciente(user_phone):
+    lead = Lead.query.filter_by(phone=user_phone).order_by(Lead.created_at.desc()).first()
+    return lead.name if lead and lead.name else ""
+
 # Função para buscar o histórico recente do paciente
 def buscar_historico(user_phone, limite=5):
     user_phone = user_phone.replace("whatsapp:", "")  # Remover prefixo Twilio
@@ -119,12 +124,6 @@ def buscar_historico(user_phone, limite=5):
         for idx, msg in enumerate(historico)
     ]
 
-# Função para salvar a conversa
-def salvar_conversa(user_phone, message, response):
-    chat_entry = ChatHistory(user_phone=user_phone, message=message, response=response)
-    db.session.add(chat_entry)
-    db.session.commit()
-
 # Função para obter previsão do tempo
 def obter_previsao_tempo():
     try:
@@ -133,17 +132,20 @@ def obter_previsao_tempo():
     except:
         return ""
 
-# Ajuste do prompt para aprimorar a experiência do usuário
+# Ajuste do prompt para melhorar a interação
 def gerar_resposta_ia(pergunta, numero):
     historico = buscar_historico(numero)
+    nome_paciente = buscar_nome_paciente(numero)
     profissionais = buscar_profissionais()
     previsao_tempo = obter_previsao_tempo()
     profissionais_texto = "\n".join([f"- {esp}: {nome}" for esp, nome in profissionais.items()])
     
+    saudacao = "" if not nome_paciente else f"Olá, {nome_paciente}! "
+    
     prompt = [
         SystemMessage(content="Você é uma secretária virtual. Todas as respostas devem ser em português, naturais e sem repetições desnecessárias. Mencione o nome do paciente se já foi informado. Se perguntarem sobre estacionamento, informe que é permitido estacionar na rua, mas devido à alta demanda, pode ser difícil encontrar vagas. Informe também que a clínica já solicitou sinalização para deficientes. Se relevante, mencione a previsão do tempo para ajudar no planejamento da visita."),
         *historico,
-        HumanMessage(content=f"Agora, o usuário enviou uma nova pergunta: {pergunta}"),
+        HumanMessage(content=f"{saudacao}Agora, o usuário enviou uma nova pergunta: {pergunta}"),
         SystemMessage(content=f"Previsão do tempo atual: {previsao_tempo}"),
         SystemMessage(content="Sempre mencione o profissional correto para o tratamento solicitado. Se for um agendamento, pergunte primeiro o período (manhã ou tarde) antes de solicitar o dia específico. Responda com clareza, empatia e um tom acolhedor.")
     ]
@@ -151,7 +153,6 @@ def gerar_resposta_ia(pergunta, numero):
     resposta_obj = llm.invoke(prompt)
     
     resposta = resposta_obj.content if isinstance(resposta_obj, AIMessage) else str(resposta_obj)
-    salvar_conversa(numero, pergunta, resposta)  # Salvar no banco corretamente
     return resposta
 
 @app.route("/", methods=['POST'])
