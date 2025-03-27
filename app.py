@@ -108,6 +108,11 @@ def buscar_profissionais():
         return "No momento, nossa clínica conta com uma equipe especializada apenas em odontologia."
     return "\n".join([f"- {prof.name}, especialista em {prof.specialty}" for prof in profissionais])
 
+# Função para buscar o nome do paciente se já foi mencionado
+def buscar_nome_paciente(user_phone):
+    lead = Lead.query.filter_by(phone=user_phone).order_by(Lead.created_at.desc()).first()
+    return lead.name if lead and lead.name else ""
+
 # Função para buscar o histórico recente do paciente
 def buscar_historico(user_phone, limite=5):
     user_phone = user_phone.replace("whatsapp:", "")  # Remover prefixo Twilio
