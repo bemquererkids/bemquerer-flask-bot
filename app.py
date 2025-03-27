@@ -111,7 +111,7 @@ def salvar_conversa(user_phone, message, response):
     db.session.add(chat_entry)
     db.session.commit()
 
-# Ajuste do prompt para incluir histórico
+# Ajuste do prompt para incluir histórico e melhorar a interação
 def gerar_resposta_ia(pergunta, numero):
     historico = buscar_historico(numero)
     prompt = f"""Você é uma secretária virtual da Bem-Querer Odontologia.
@@ -122,7 +122,7 @@ def gerar_resposta_ia(pergunta, numero):
     Agora, o usuário enviou uma nova pergunta:
     {pergunta}
 
-    Responda com clareza e carinho."""
+    Se o paciente quiser marcar uma consulta, pergunte primeiro se ele prefere período da manhã ou da tarde antes de solicitar uma data específica. Sempre mencione o nome do profissional responsável pelo tratamento solicitado. Responda com clareza, empatia e um tom acolhedor."""
     
     resposta_obj = llm.invoke(prompt)
     
