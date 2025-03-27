@@ -124,6 +124,12 @@ def buscar_historico(user_phone, limite=5):
         for idx, msg in enumerate(historico)
     ]
 
+# Função para salvar a conversa
+def salvar_conversa(user_phone, message, response):
+    chat_entry = ChatHistory(user_phone=user_phone, message=message, response=response)
+    db.session.add(chat_entry)
+    db.session.commit()
+
 # Ajuste do prompt para melhorar a interação
 def gerar_resposta_ia(pergunta, numero):
     historico = buscar_historico(numero)
