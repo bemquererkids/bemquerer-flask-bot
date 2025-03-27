@@ -108,6 +108,19 @@ def buscar_profissionais():
         return "No momento, nossa clínica conta com uma equipe especializada apenas em odontologia."
     return "\n".join([f"- {prof.name}, especialista em {prof.specialty}" for prof in profissionais])
 
+# Função para buscar o histórico recente do paciente
+def buscar_historico(user_phone, limite=5):
+    user_phone = user_phone.replace("whatsapp:", "")  # Remover prefixo Twilio
+    historico = ChatHistory.query.filter_by(user_phone=user_phone).order_by(ChatHistory.timestamp.desc()).limit(limite).all()
+    
+    if not historico:
+        return []
+    
+    return [
+        HumanMessage(content=msg.message) if idx % 2 == 0 else AIMessage(content=msg.response)
+        for idx, msg in enumerate(historico)
+    ]
+
 # Função para gerar resposta mais precisa
 def gerar_resposta_ia(pergunta, numero):
     historico = buscar_historico(numero)
