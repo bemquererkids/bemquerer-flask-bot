@@ -16,6 +16,7 @@ from langchain.agents import initialize_agent, Tool
 from langchain_openai import ChatOpenAI
 from langchain.agents.agent_types import AgentType
 from langchain.schema import SystemMessage, AIMessage, HumanMessage
+from langchain_community.output_parsers.rail_parser import GuardrailsOutputParser
 import pytz
 import requests
 
@@ -123,3 +124,7 @@ def buscar_resposta_faq(pergunta):
                 "Gostaria de mais informações ou deseja marcar uma consulta?")
 
     return None
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))  # Garante que usa a porta correta no Render
+    app.run(host="0.0.0.0", port=port, debug=True)
