@@ -215,7 +215,8 @@ def gerar_resposta_ia(pergunta, numero):
         return f"{saudacao}! Com quem eu tenho o prazer de falar?"
 
     resposta = responder_com_agente(pergunta)
-    return f"{saudacao}, {nome_usuario[numero]}! {resposta}"
+    acolhimento = "Só pra confirmar, esse atendimento é pra você ou para seu filho(a)? Está com alguma dor ou desconforto no momento? Quero garantir o melhor cuidado."
+    return f"{saudacao}, {nome_usuario[numero]}! {resposta.capitalize()} {acolhimento}"
 
 @app.route("/", methods=['POST'])
 def index():
