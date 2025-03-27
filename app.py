@@ -51,6 +51,12 @@ class Context(db.Model):
     clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'))
     content = db.Column(db.Text, nullable=False)
 
+class Professional(db.Model):
+    __tablename__ = 'professionals'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    specialty = db.Column(db.String(100), nullable=False)
+
 class Lead(db.Model):
     __tablename__ = 'leads'
     id = db.Column(db.Integer, primary_key=True)
@@ -84,6 +90,7 @@ admin = Admin(app, name='Bem-Querer Admin', template_mode='bootstrap3')
 admin.add_view(ModelView(Clinic, db.session))
 admin.add_view(ModelView(FAQ, db.session))
 admin.add_view(ModelView(Context, db.session))
+admin.add_view(ModelView(Professional, db.session))
 admin.add_view(ModelView(Lead, db.session))
 admin.add_view(ModelView(ChatHistory, db.session))
 
@@ -92,6 +99,11 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # LangChain Config
 llm = ChatOpenAI(temperature=0, model_name="gpt-4")
+
+# Função para buscar os profissionais da clínica
+def buscar_profissionais():
+    profissionais = Professional.query.all()
+    return {prof.specialty: prof.name for prof in profissionais}
 
 # Função para buscar o histórico recente do paciente
 def buscar_historico(user_phone, limite=5):
@@ -111,18 +123,24 @@ def salvar_conversa(user_phone, message, response):
     db.session.add(chat_entry)
     db.session.commit()
 
-# Ajuste do prompt para incluir histórico e melhorar a interação
+# Ajuste do prompt para incluir os profissionais corretos e melhorar a interação
 def gerar_resposta_ia(pergunta, numero):
     historico = buscar_historico(numero)
+    profissionais = buscar_profissionais()
+    profissionais_texto = "\n".join([f"- {esp}: {nome}" for esp, nome in profissionais.items()])
+    
     prompt = f"""Você é uma secretária virtual da Bem-Querer Odontologia.
 
     Aqui está o histórico da conversa:
     {historico}
 
+    Lista de profissionais da clínica e suas especialidades:
+    {profissionais_texto}
+
     Agora, o usuário enviou uma nova pergunta:
     {pergunta}
 
-    Se o paciente quiser marcar uma consulta, pergunte primeiro se ele prefere período da manhã ou da tarde antes de solicitar uma data específica. Sempre mencione o nome do profissional responsável pelo tratamento solicitado. Responda com clareza, empatia e um tom acolhedor."""
+    Sempre mencione o profissional correto para o tratamento solicitado. Se for um agendamento, pergunte primeiro o período (manhã ou tarde) antes de solicitar o dia específico. Responda com clareza, empatia e um tom acolhedor."""
     
     resposta_obj = llm.invoke(prompt)
     
