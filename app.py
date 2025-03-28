@@ -118,7 +118,11 @@ def index():
     if request.method == "GET":
         return "API rodando corretamente", 200
     
-    numero = request.form.get("From").replace("whatsapp:", "").strip()
+    numero = request.form.get("From")
+    if not numero:
+        return "Número inválido", 400
+    numero = numero.replace("whatsapp:", "").strip()
+    
     mensagem = request.form.get("Body").strip()
     nome, origem = buscar_lead(numero)
     ultima_interacao, ultima_resposta = buscar_contexto(numero)
