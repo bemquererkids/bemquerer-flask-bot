@@ -140,7 +140,7 @@ def index():
         elif "endereço" in mensagem.lower() or "onde fica" in mensagem.lower():
             resposta = "Estamos na Rua Siqueira Campos, 1068 - Vila Assunção, Santo André/SP. Próximo à Padaria Brasileira."
         elif ultima_interacao and ultima_resposta and mensagem.lower() != ultima_interacao.lower() and mensagem.lower() not in ["olá", "oi", "tudo bem?"]:
-            resposta = f"{saudacao} Sobre nossa última conversa: '{ultima_interacao}'. Como posso te ajudar agora?"
+            resposta = f"{saudacao} Da última vez falamos sobre: '{ultima_interacao}'. Como posso te ajudar agora?"
         else:
             resposta = f"{saudacao} Como posso te ajudar hoje?"
     
