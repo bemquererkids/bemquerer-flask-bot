@@ -61,8 +61,8 @@ class Context(db.Model):
     __tablename__ = 'context'
     id = db.Column(db.Integer, primary_key=True)
     user_phone = db.Column(db.String(50), nullable=False, unique=True)
-    last_interaction = db.Column(db.Text, nullable=False)
-    last_response = db.Column(db.Text, nullable=False)
+    last_interaction = db.Column(db.Text, nullable=True)
+    last_response = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
@@ -139,10 +139,10 @@ def index():
             resposta = f"{saudacao} Você deseja agendar uma consulta? Me informe um período que seja melhor para você: manhã ou tarde."
         elif "endereço" in mensagem.lower() or "onde fica" in mensagem.lower():
             resposta = "Estamos na Rua Siqueira Campos, 1068 - Vila Assunção, Santo André/SP. Próximo à Padaria Brasileira."
-        elif ultima_interacao and ultima_resposta:
-            resposta = f"{saudacao} Na última vez falamos sobre: '{ultima_interacao}'. Você mencionou: '{ultima_resposta}'. Como posso te ajudar agora?"
+        elif ultima_interacao and ultima_resposta and mensagem.lower() != ultima_interacao.lower():
+            resposta = f"{saudacao} Sobre o que conversamos antes: '{ultima_interacao}'. Como posso te ajudar agora?"
         else:
-            resposta = f"{saudacao} Poderia me dar mais detalhes para que eu possa te ajudar melhor?"
+            resposta = f"{saudacao} Como posso te ajudar hoje?"
     
     salvar_contexto(numero, mensagem, resposta)
     
