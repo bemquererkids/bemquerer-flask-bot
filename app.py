@@ -6,7 +6,6 @@ from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
 import os
 import time
-import random
 import difflib
 from openai import OpenAI
 from datetime import datetime
@@ -73,8 +72,7 @@ class Lead(db.Model):
     allergies = db.Column(db.Text, nullable=True)
     medications = db.Column(db.Text, nullable=True)
     notes = db.Column(db.Text, nullable=True)
-    message = db.Column(db.Text)
-    response = db.Column(db.Text)
+    source = db.Column(db.String(100), nullable=True)  # Adicionando origem do lead
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     last_contact = db.Column(db.DateTime, default=db.func.current_timestamp())
 
@@ -108,22 +106,39 @@ def buscar_resposta_faq(pergunta):
     for faq in faqs:
         if pergunta.lower() in faq.question.lower():
             return faq.answer
-
-    # Se a pergunta for sobre atendimento TEA e não houver resposta na FAQ, buscar o profissional responsável
-    if any(termo in pergunta.lower() for termo in ["autismo", "autista", "paciente especial", "TEA"]):
-        profissional_tea = Professional.query.filter(Professional.specialty.ilike("%pacientes especiais%")).first()
-        if profissional_tea:
-            return (f"Sim, atendemos pacientes com TEA e necessidades especiais. "
-                    f"O atendimento é realizado pela {profissional_tea.name}, que tem experiência e formação na área. "
-                    "Nossa equipe utiliza técnicas de condicionamento e adaptação para tornar a consulta confortável. "
-                    "Gostaria de mais informações ou deseja marcar uma consulta?")
-
-        return ("Sim, atendemos pacientes com TEA e necessidades especiais. "
-                "Nossa equipe é especializada e utiliza um ambiente adaptado para garantir conforto e acolhimento. "
-                "Utilizamos técnicas de condicionamento e adaptação gradual para que a experiência do paciente seja tranquila. "
-                "Gostaria de mais informações ou deseja marcar uma consulta?")
-
     return None
+
+# Função para capturar nome e origem do lead
+def buscar_lead(phone):
+    lead = Lead.query.filter_by(phone=phone).first()
+    if lead:
+        return lead.name, lead.source
+    return None, None
+
+@app.route("/", methods=["POST"])
+def index():
+    numero = request.form.get("From")
+    mensagem = request.form.get("Body").strip()
+    nome, origem = buscar_lead(numero)
+    
+    if not nome:
+        nome = ""
+    else:
+        nome = f" {nome}"  # Adiciona o nome à saudação
+    
+    resposta = buscar_resposta_faq(mensagem)
+    if not resposta:
+        resposta = f"Olá{nome}, ainda não tenho essa informação na base. Poderia me dar mais detalhes para que eu possa te ajudar melhor?"
+    
+    # Salvar interação no histórico
+    novo_chat = ChatHistory(user_phone=numero, message=mensagem, response=resposta)
+    db.session.add(novo_chat)
+    db.session.commit()
+
+    # Envio da resposta
+    resp = MessagingResponse()
+    resp.message(resposta)
+    return Response(str(resp), mimetype='application/xml'), 200
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))  # Garante que usa a porta correta no Render
