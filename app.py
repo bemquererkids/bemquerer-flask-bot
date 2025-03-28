@@ -108,11 +108,15 @@ def index():
         resposta = historico.response
     else:
         resposta = buscar_resposta_faq(mensagem)
+        
+        # Tratamento de perguntas comuns
         if not resposta:
-            if "consulta" in mensagem.lower():
-                resposta = f"{saudacao} Você deseja agendar uma consulta? Me informe um período que seja melhor para você manhà ou tarde."
-            elif "endereço" in mensagem.lower() or "onde fica" in mensagem.lower():
+            if any(palavra in mensagem.lower() for palavra in ["consulta", "agendar", "horário"]):
+                resposta = f"{saudacao} Você deseja agendar uma consulta? Me informe um período que seja melhor para você: manhã ou tarde?"
+            elif any(palavra in mensagem.lower() for palavra in ["endereço", "onde fica", "localização"]):
                 resposta = "Estamos na Rua Siqueira Campos, 1068 - Vila Assunção, Santo André/SP. Próximo à Padaria Brasileira."
+            elif any(palavra in mensagem.lower() for palavra in ["autismo", "TEA", "especial", "pacientes especiais"]):
+                resposta = "Sim! Nossa clínica é especializada no atendimento de pacientes com TEA e outras condições. Temos um ambiente adaptado e equipe treinada para acolher com carinho e segurança."
             else:
                 resposta = f"{saudacao} Poderia me dar mais detalhes para que eu possa te ajudar melhor?"
     
