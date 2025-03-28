@@ -57,12 +57,22 @@ class ChatHistory(db.Model):
     response = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
 
+class Context(db.Model):
+    __tablename__ = 'contexto'
+    id = db.Column(db.Integer, primary_key=True)
+    user_phone = db.Column(db.String(50), nullable=False, unique=True)
+    last_interaction = db.Column(db.Text, nullable=False)
+    last_response = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
 # Flask-Admin
 admin = Admin(app, name='Bem-Querer Admin', template_mode='bootstrap3')
 admin.add_view(ModelView(Clinic, db.session))
 admin.add_view(ModelView(FAQ, db.session))
 admin.add_view(ModelView(Lead, db.session))
 admin.add_view(ModelView(ChatHistory, db.session))
+admin.add_view(ModelView(Context, db.session))
 
 # OpenAI Config
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -87,6 +97,22 @@ def buscar_lead(phone):
         return lead.name, lead.source
     return None, None
 
+# Função para buscar contexto do usuário
+def buscar_contexto(phone):
+    contexto = Context.query.filter_by(user_phone=phone).first()
+    return contexto.last_response if contexto else None
+
+# Função para salvar contexto
+def salvar_contexto(phone, mensagem, resposta):
+    contexto_existente = Context.query.filter_by(user_phone=phone).first()
+    if contexto_existente:
+        contexto_existente.last_interaction = mensagem
+        contexto_existente.last_response = resposta
+    else:
+        novo_contexto = Context(user_phone=phone, last_interaction=mensagem, last_response=resposta)
+        db.session.add(novo_contexto)
+    db.session.commit()
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "GET":
@@ -95,6 +121,7 @@ def index():
     numero = request.form.get("From").replace("whatsapp:", "").strip()
     mensagem = request.form.get("Body").strip()
     nome, origem = buscar_lead(numero)
+    contexto_anterior = buscar_contexto(numero)
     
     saudacao = "Olá"
     if nome:
@@ -102,30 +129,19 @@ def index():
     else:
         saudacao += ", tudo bem?"
     
-    # Verificar se já respondeu essa pergunta antes para evitar repetições
-    historico = ChatHistory.query.filter_by(user_phone=numero, message=mensagem).first()
-    if historico:
-        resposta = historico.response
-    else:
-        resposta = buscar_resposta_faq(mensagem)
-        
-        # Tratamento de perguntas comuns
-        if not resposta:
-            if any(palavra in mensagem.lower() for palavra in ["consulta", "agendar", "horário"]):
-                resposta = f"{saudacao} Você deseja agendar uma consulta? Me informe um período que seja melhor para você: manhã ou tarde?"
-            elif any(palavra in mensagem.lower() for palavra in ["endereço", "onde fica", "localização"]):
-                resposta = "Estamos na Rua Siqueira Campos, 1068 - Vila Assunção, Santo André/SP. Próximo à Padaria Brasileira."
-            elif any(palavra in mensagem.lower() for palavra in ["autismo", "TEA", "especial", "pacientes especiais"]):
-                resposta = "Sim! Nossa clínica é especializada no atendimento de pacientes com TEA e outras condições. Temos um ambiente adaptado e equipe treinada para acolher com carinho e segurança."
-            else:
-                resposta = f"{saudacao} Poderia me dar mais detalhes para que eu possa te ajudar melhor?"
+    resposta = buscar_resposta_faq(mensagem)
+    if not resposta:
+        if "consulta" in mensagem.lower():
+            resposta = f"{saudacao} Você deseja agendar uma consulta? Me informe um período que seja melhor para você manhà ou tarde."
+        elif "endereço" in mensagem.lower() or "onde fica" in mensagem.lower():
+            resposta = "Estamos na Rua Siqueira Campos, 1068 - Vila Assunção, Santo André/SP. Próximo à Padaria Brasileira."
+        elif contexto_anterior:
+            resposta = f"{saudacao} Só reforçando nossa última conversa: {contexto_anterior}. Como posso te ajudar hoje?"
+        else:
+            resposta = f"{saudacao} Poderia me dar mais detalhes para que eu possa te ajudar melhor?"
     
-    # Salvar interação no histórico
-    novo_chat = ChatHistory(user_phone=numero, message=mensagem, response=resposta)
-    db.session.add(novo_chat)
-    db.session.commit()
+    salvar_contexto(numero, mensagem, resposta)
     
-    # Envio da resposta
     resp = MessagingResponse()
     resp.message(resposta)
     return Response(str(resp), mimetype='application/xml'), 200
