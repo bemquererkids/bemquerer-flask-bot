@@ -111,7 +111,7 @@ def buscar_resposta_faq(pergunta):
 # Função para capturar nome e origem do lead
 def buscar_lead(phone):
     phone_formatado = phone.replace("whatsapp:", "").strip()
-    lead = Lead.query.filter_by(phone=phone_formatado).first()
+    lead = Lead.query.filter(Lead.phone.ilike(f"%{phone_formatado}%")).first()
     
     if lead:
         return lead.name, lead.source
@@ -129,10 +129,12 @@ def index():
     saudacao = "Olá"
     if nome:
         saudacao += f" {nome},"
+    else:
+        saudacao += ", tudo bem?"
     
     resposta = buscar_resposta_faq(mensagem)
     if not resposta:
-        resposta = f"{saudacao} ainda não tenho essa informação na base. Poderia me dar mais detalhes para que eu possa te ajudar melhor?"
+        resposta = f"{saudacao} Poderia me dar mais detalhes para que eu possa te ajudar melhor?"
     
     # Salvar interação no histórico
     novo_chat = ChatHistory(user_phone=numero, message=mensagem, response=resposta)
