@@ -123,7 +123,7 @@ def index():
         return "Número inválido", 400
     numero = numero.replace("whatsapp:", "").strip()
     
-    mensagem = request.form.get("Body").strip()
+    mensagem = request.form.get("Body").strip().lower()
     nome, origem = buscar_lead(numero)
     ultima_interacao, ultima_resposta = buscar_contexto(numero)
     
@@ -135,12 +135,12 @@ def index():
     
     resposta = buscar_resposta_faq(mensagem)
     if not resposta:
-        if "consulta" in mensagem.lower():
+        if "consulta" in mensagem:
             resposta = f"{saudacao} Você deseja agendar uma consulta? Me informe um período que seja melhor para você: manhã ou tarde."
-        elif "endereço" in mensagem.lower() or "onde fica" in mensagem.lower():
+        elif "endereço" in mensagem or "onde fica" in mensagem:
             resposta = "Estamos na Rua Siqueira Campos, 1068 - Vila Assunção, Santo André/SP. Próximo à Padaria Brasileira."
-        elif ultima_interacao and ultima_resposta and mensagem.lower() != ultima_interacao.lower() and mensagem.lower() not in ["olá", "oi", "tudo bem?"]:
-            resposta = f"{saudacao} Da última vez falamos sobre: '{ultima_interacao}'. Como posso te ajudar agora?"
+        elif ultima_interacao and mensagem != ultima_interacao and mensagem not in ["olá", "oi", "tudo bem?"]:
+            resposta = f"{saudacao} Você quer continuar falando sobre '{ultima_interacao}' ou precisa de algo diferente?"
         else:
             resposta = f"{saudacao} Como posso te ajudar hoje?"
     
