@@ -58,7 +58,7 @@ class ChatHistory(db.Model):
     timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
 
 class Context(db.Model):
-    __tablename__ = 'contexto'
+    __tablename__ = 'context'
     id = db.Column(db.Integer, primary_key=True)
     user_phone = db.Column(db.String(50), nullable=False, unique=True)
     last_interaction = db.Column(db.Text, nullable=False)
@@ -100,7 +100,7 @@ def buscar_lead(phone):
 # Função para buscar contexto do usuário
 def buscar_contexto(phone):
     contexto = Context.query.filter_by(user_phone=phone).first()
-    return contexto.last_response if contexto else None
+    return (contexto.last_interaction, contexto.last_response) if contexto else (None, None)
 
 # Função para salvar contexto
 def salvar_contexto(phone, mensagem, resposta):
@@ -121,7 +121,7 @@ def index():
     numero = request.form.get("From").replace("whatsapp:", "").strip()
     mensagem = request.form.get("Body").strip()
     nome, origem = buscar_lead(numero)
-    contexto_anterior = buscar_contexto(numero)
+    ultima_interacao, ultima_resposta = buscar_contexto(numero)
     
     saudacao = "Olá"
     if nome:
@@ -132,11 +132,11 @@ def index():
     resposta = buscar_resposta_faq(mensagem)
     if not resposta:
         if "consulta" in mensagem.lower():
-            resposta = f"{saudacao} Você deseja agendar uma consulta? Me informe um período que seja melhor para você manhà ou tarde."
+            resposta = f"{saudacao} Você deseja agendar uma consulta? Me informe um período que seja melhor para você: manhã ou tarde."
         elif "endereço" in mensagem.lower() or "onde fica" in mensagem.lower():
             resposta = "Estamos na Rua Siqueira Campos, 1068 - Vila Assunção, Santo André/SP. Próximo à Padaria Brasileira."
-        elif contexto_anterior:
-            resposta = f"{saudacao} Só reforçando nossa última conversa: {contexto_anterior}. Como posso te ajudar hoje?"
+        elif ultima_interacao and ultima_resposta:
+            resposta = f"{saudacao} Na última vez falamos sobre: '{ultima_interacao}'. Você mencionou: '{ultima_resposta}'. Como posso te ajudar agora?"
         else:
             resposta = f"{saudacao} Poderia me dar mais detalhes para que eu possa te ajudar melhor?"
     
