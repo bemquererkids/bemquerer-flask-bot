@@ -115,12 +115,15 @@ def buscar_lead(phone):
         return lead.name, lead.source
     return None, None
 
-@app.route("/", methods=["POST"])
+@app.route("/", methods=["GET", "POST"])
 def index():
+    if request.method == "GET":
+        return "API rodando corretamente", 200
+    
     numero = request.form.get("From")
     mensagem = request.form.get("Body").strip()
     nome, origem = buscar_lead(numero)
-    
+
     if not nome:
         nome = ""
     else:
