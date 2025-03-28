@@ -110,7 +110,9 @@ def buscar_resposta_faq(pergunta):
 
 # Função para capturar nome e origem do lead
 def buscar_lead(phone):
-    lead = Lead.query.filter_by(phone=phone).first()
+    phone_formatado = f"whatsapp:{phone}"  # Ajusta o formato do número
+    lead = Lead.query.filter_by(phone=phone_formatado).first()
+    
     if lead:
         return lead.name, lead.source
     return None, None
@@ -123,7 +125,7 @@ def index():
     numero = request.form.get("From")
     mensagem = request.form.get("Body").strip()
     nome, origem = buscar_lead(numero)
-
+    
     if not nome:
         nome = ""
     else:
