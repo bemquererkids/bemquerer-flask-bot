@@ -98,7 +98,7 @@ def index():
     
     saudacao = "Olá"
     if nome:
-        saudacao += f" {nome},"
+        saudacao += f" {nome}, tudo bem?"
     else:
         saudacao += ", tudo bem?"
     
@@ -109,7 +109,12 @@ def index():
     else:
         resposta = buscar_resposta_faq(mensagem)
         if not resposta:
-            resposta = f"{saudacao} Poderia me dar mais detalhes para que eu possa te ajudar melhor?"
+            if "consulta" in mensagem.lower():
+                resposta = f"{saudacao} Você deseja agendar uma consulta? Me informe um período que seja melhor para você manhà ou tarde."
+            elif "endereço" in mensagem.lower() or "onde fica" in mensagem.lower():
+                resposta = "Estamos na Rua Siqueira Campos, 1068 - Vila Assunção, Santo André/SP. Próximo à Padaria Brasileira."
+            else:
+                resposta = f"{saudacao} Poderia me dar mais detalhes para que eu possa te ajudar melhor?"
     
     # Salvar interação no histórico
     novo_chat = ChatHistory(user_phone=numero, message=mensagem, response=resposta)
