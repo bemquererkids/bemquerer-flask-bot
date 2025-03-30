@@ -1,3 +1,4 @@
+# app.py
 from flask import Flask, request, Response
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
@@ -18,8 +19,9 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 admin = Admin(app, name='Bem-Querer Admin', template_mode='bootstrap3')
 
-
+# ✅ Atualizado aqui: schemas.models no lugar de models.models
 from schemas.models import Clinic, FAQ, Lead, ChatHistory, Context
+
 admin.add_view(ModelView(Clinic, db.session))
 admin.add_view(ModelView(FAQ, db.session))
 admin.add_view(ModelView(Lead, db.session))
