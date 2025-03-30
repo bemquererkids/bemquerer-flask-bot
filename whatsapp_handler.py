@@ -1,4 +1,3 @@
-
 # services/whatsapp_handler.py
 from models.models import FAQ, Lead, Context
 from app import db
