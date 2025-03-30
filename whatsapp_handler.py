@@ -1,5 +1,5 @@
 # services/whatsapp_handler.py
-from models.models import FAQ, Lead, Context
+from schemas.models import FAQ, Lead, Context
 from app import db
 import difflib
 from agents.langchain_agent import clara_responde
