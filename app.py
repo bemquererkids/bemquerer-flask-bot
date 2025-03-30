@@ -23,7 +23,7 @@ migrate = Migrate(app, db)
 admin = Admin(app, name='Bem-Querer Admin', template_mode='bootstrap3')
 
 # Importa modelos e adiciona ao admin
-from models.models import Clinic, FAQ, Lead, ChatHistory, Context
+from secretaria_ia.models.models import Clinic, FAQ, Lead, ChatHistory, Context
 admin.add_view(ModelView(Clinic, db.session))
 admin.add_view(ModelView(FAQ, db.session))
 admin.add_view(ModelView(Lead, db.session))
@@ -31,7 +31,7 @@ admin.add_view(ModelView(ChatHistory, db.session))
 admin.add_view(ModelView(Context, db.session))
 
 # Importa serviço de resposta principal
-from services.whatsapp_handler import responder_mensagem
+from secretaria_ia.services.whatsapp_handler import responder_mensagem
 
 # Rota principal para Twilio
 @app.route("/", methods=["GET", "POST"])
