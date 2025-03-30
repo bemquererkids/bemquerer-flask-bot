@@ -19,7 +19,7 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 admin = Admin(app, name='Bem-Querer Admin', template_mode='bootstrap3')
 
-# ✅ Atualizado aqui: schemas.models no lugar de models.models
+# Import atualizado
 from schemas.models import Clinic, FAQ, Lead, ChatHistory, Context
 
 admin.add_view(ModelView(Clinic, db.session))
